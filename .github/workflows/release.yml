@@ -4,6 +4,13 @@ name: release
 on:
   push:
     tags: ["v*"]
+  # Re-run only the npm publish for an existing tag (first publish, registry outage). Must stay in this file: npm's
+  # trusted publisher is bound to release.yml.
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing tag, e.g. v0.1.1"
+        required: true
 permissions:
   contents: read
 concurrency:
@@ -12,18 +19,22 @@ concurrency:
 jobs:
   test:
     runs-on: ubuntu-latest
+    env:
+      TAG: ${{ inputs.tag || github.ref_name }}
     steps:
       - uses: actions/checkout@v4
+        with: { ref: "${{ env.TAG }}" }
       - uses: actions/setup-node@v4
         with: { node-version: 22 }
       - run: npm ci --no-audit --no-fund
       - run: npm run typecheck
       - run: npm test
       - name: Tag matches package.json
-        run: test "v$(node -p 'require("./package.json").version')" = "${GITHUB_REF_NAME}"
+        run: test "v$(node -p 'require("./package.json").version')" = "${TAG}"
 
   binaries:
     needs: test
+    if: github.event_name == 'push'
     strategy:
       fail-fast: true
       matrix:
@@ -95,14 +106,17 @@ jobs:
     permissions:
       contents: read
       id-token: write
+    env:
+      TAG: ${{ inputs.tag || github.ref_name }}
     steps:
       - uses: actions/checkout@v4
+        with: { ref: "${{ env.TAG }}" }
       - uses: actions/setup-node@v4
         with: { node-version: 22, registry-url: "https://registry.npmjs.org" }
       - run: npm install -g npm@11.6.2
       - run: npm ci --no-audit --no-fund && npm run build
       - run: |
-          tag=latest; case "$GITHUB_REF_NAME" in *-*) tag=next;; esac
+          tag=latest; case "$TAG" in *-*) tag=next;; esac
           npm publish --provenance --access public --tag "$tag"
 
   tap:
