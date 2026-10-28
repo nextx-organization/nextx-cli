@@ -22,7 +22,7 @@ if [ "$VERSION" = latest ]; then base="https://github.com/$REPO/releases/latest/
 asset="$BIN-$os-$arch.tar.gz"
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
-echo "Downloading $asset…"
+echo "Downloading ${asset}..."
 curl -fsSL "$base/$asset" -o "$tmp/$asset"
 curl -fsSL "$base/SHA256SUMS" -o "$tmp/SHA256SUMS"
 expected="$(grep " $asset\$" "$tmp/SHA256SUMS" | cut -d' ' -f1)"
