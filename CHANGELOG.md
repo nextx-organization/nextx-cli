@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.1
+
+- x64 builds (Intel Mac, Linux, Windows) now target every x64 CPU, including older Intel Macs without AVX2.
+- Browser login exits as soon as the browser returns; `login --device` works with the new device-code sign-in page.
+
 ## 0.1.0
 
 First release.
