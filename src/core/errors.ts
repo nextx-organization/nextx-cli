@@ -14,6 +14,11 @@ export const Exit = {
 
 export type ExitCode = (typeof Exit)[keyof typeof Exit];
 
+/** The brand's server does not offer this sign-in method yet. */
+export function notYetError(what: string, instead: string): CliError {
+  return new CliError(`${what} — ${instead}`, Exit.usage);
+}
+
 export class CliError extends Error {
   constructor(
     message: string,

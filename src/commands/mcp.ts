@@ -6,7 +6,7 @@ import { spawnSync } from "node:child_process";
 import { createInterface } from "node:readline";
 import { fetch } from "undici";
 import { parse as parseToml, stringify as stringifyToml } from "smol-toml";
-import { brand } from "../core/brand.js";
+import { brand, envVar } from "../core/brand.js";
 import { context } from "../core/context.js";
 import { CliError, Exit } from "../core/errors.js";
 import { tr } from "../core/i18n.js";
@@ -154,8 +154,10 @@ export function registerMcp(program: Command): void {
 
 /** Line-delimited JSON-RPC on stdio ⇄ Streamable HTTP to the hosted server. Logs go to stderr only. */
 async function serveStdio(): Promise<void> {
-  const url = context().endpoints.mcp;
-  let token = await mcpToken({ interactive: false });
+  // NextFarm API keys speak MCP through the gateway (same read-only route rules as the key everywhere else).
+  const apiKey = brand().platform === "nextfarm" ? envVar("API_KEY") : undefined;
+  const url = apiKey ? `${context().endpoints.api}/api/v1/mcp` : context().endpoints.mcp;
+  let token = apiKey ?? (await mcpToken({ interactive: false }));
   let sessionId: string | undefined;
   const rl = createInterface({ input: process.stdin });
   const write = (m: unknown) => process.stdout.write(`${JSON.stringify(m)}\n`);
@@ -181,7 +183,7 @@ async function serveStdio(): Promise<void> {
       });
     try {
       let res = await send();
-      if (res.status === 401) {
+      if (res.status === 401 && !apiKey) {
         token = await mcpToken({ interactive: false });
         res = await send();
       }

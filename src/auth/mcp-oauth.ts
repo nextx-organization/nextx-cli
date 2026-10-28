@@ -1,7 +1,6 @@
 // Delegated OAuth for the hosted MCP server. Tool catalog and tool calls only accept tokens issued for the
-// MCP resource (RFC 8707), so the CLI registers itself like any MCP client: dynamic client registration
-// (public, PKCE, loopback), one consent in the browser, then refresh tokens.
-import { hostname } from "node:os";
+// MCP resource (RFC 8707): public client identified by its metadata document URL, PKCE + loopback, one consent
+// in the browser, then refresh tokens.
 import { fetch } from "undici";
 import { brand } from "../core/brand.js";
 import { context } from "../core/context.js";
@@ -70,6 +69,14 @@ async function discover(): Promise<{ resource: ResourceMeta; as: AsMeta; asUrl: 
   return { resource: r.body, as: a.body, asUrl };
 }
 
+/**
+ * The CLI's client_id is the URL of its metadata document on the developer portal (Client ID Metadata Document).
+ * The portal's domain is trusted by the authorization server, so the CLI counts as a verified AI app and works in
+ * workspaces that allow verified apps only (the default) — a self-registered (DCR) client never would.
+ * Each environment uses its own portal (both are trusted by their authorization server).
+ */
+export const cliClientId = () => `${context().endpoints.docs}/cli/oauth-client.json`;
+
 /** Scopes to ask for: everything the server offers, limited to the brand's modules. */
 function wantedScopes(offered: string[]): string {
   const mods = brand().modules;
@@ -78,26 +85,9 @@ function wantedScopes(offered: string[]): string {
 
 export async function authorizeMcp(opts: { openBrowser?: boolean; manual?: boolean } = {}): Promise<McpGrant> {
   const { resource, as, asUrl } = await discover();
-  if (!as.registration_endpoint) throw new CliError(tr("Máy chủ không cho đăng ký client.", "The server does not allow client registration."), Exit.general);
   const p = pkce();
   const waiter = await waitForCode(p.state);
-  const prev = readGrant();
-  let clientId = prev?.authServer === asUrl ? prev.clientId : undefined;
-  if (!clientId) {
-    const reg = await json<{ client_id: string }>(as.registration_endpoint, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        client_name: `${brand().name} CLI (${hostname()})`,
-        client_uri: context().endpoints.docs + "/docs/cli",
-        redirect_uris: ["http://127.0.0.1/callback"],
-        grant_types: ["authorization_code", "refresh_token"],
-        token_endpoint_auth_method: "none",
-      }),
-    });
-    if (!reg.res.ok) throw errorFor(reg.res.status, reg.body, reg.res);
-    clientId = reg.body.client_id;
-  }
+  const clientId = cliClientId();
   const scope = wantedScopes(resource.scopes_supported ?? []);
   const url = new URL(as.authorization_endpoint);
   url.search = new URLSearchParams({

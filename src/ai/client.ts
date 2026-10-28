@@ -7,6 +7,10 @@ import { get, post, put, patch, del, requestRaw, errorFor, networkError } from "
 import { CliError, Exit } from "../core/errors.js";
 import { tr } from "../core/i18n.js";
 import { brand } from "../core/brand.js";
+import * as nf from "./nextfarm.js";
+
+/** NextFarm talks to its own assistant API (see nextfarm.ts); the other brands share this file's contract. */
+const farm = () => brand().platform === "nextfarm";
 
 const BASE = "/operator/widget/support";
 
@@ -44,6 +48,8 @@ export interface ProposedAction {
   estimatedCost?: number | null;
   costCurrency?: string | null;
   proposalJson?: string | null;
+  /** Set by platforms that know the risk better than the kind regex (NextFarm: per entry line). */
+  risk?: Risk;
 }
 
 export interface AgentDto {
@@ -89,15 +95,16 @@ export interface InitResult {
   messages?: { id: string; role: string; text: string; createdAt: string; blocks?: AnswerBlock[] | null }[] | null;
 }
 
-export const openConversation = (forceNew: boolean) => post<InitResult>(`${BASE}/init`, { forceNew });
-export const listConversations = (limit = 30) => get<Conversation[]>(`${BASE}/conversations`, { query: { limit } });
-export const renameConversation = (id: string, title: string | null) => patch(`${BASE}/conversations/${id}/title`, { title });
-export const pinConversation = (id: string, pinned: boolean) => put(`${BASE}/conversations/${id}/pin`, { pinned });
-export const deleteConversation = (id: string) => del(`${BASE}/conversations/${id}`);
-export const history = (sessionId: string) => get<InitResult["messages"]>(`${BASE}/history`, { query: { sessionId } });
-export const feedback = (messageId: string, helpful: boolean) => post(`${BASE}/messages/${messageId}/feedback`, { helpful });
-export const escalate = (sessionId: string, topic: string) => post<{ estimatedWaitMinutes: number; status: string }>(`${BASE}/escalate`, { sessionId, topic });
-export const usage = () => get<{ planName?: string; used?: number; limit?: number; remaining?: number; resetsAt?: string; enforced?: boolean }>(`${BASE}/usage`);
+export const openConversation = (forceNew: boolean) => farm() ? nf.openConversation(forceNew) : post<InitResult>(`${BASE}/init`, { forceNew });
+export const listConversations = (limit = 30) => farm() ? nf.listConversations(limit) : get<Conversation[]>(`${BASE}/conversations`, { query: { limit } });
+export const renameConversation = (id: string, title: string | null) => farm() ? nf.renameConversation(id, title) : patch(`${BASE}/conversations/${id}/title`, { title });
+export const pinConversation = (id: string, pinned: boolean) => farm() ? nf.pinConversation(id, pinned) : put(`${BASE}/conversations/${id}/pin`, { pinned });
+export const deleteConversation = (id: string) => farm() ? nf.deleteConversation(id) : del(`${BASE}/conversations/${id}`);
+export const history = (sessionId: string) => farm() ? nf.history(sessionId) : get<InitResult["messages"]>(`${BASE}/history`, { query: { sessionId } });
+export const feedback = (messageId: string, helpful: boolean) => farm() ? nf.feedback(messageId, helpful) : post(`${BASE}/messages/${messageId}/feedback`, { helpful });
+export const escalate = (sessionId: string, topic: string) => farm() ? nf.escalate(sessionId, topic) : post<{ estimatedWaitMinutes: number; status: string }>(`${BASE}/escalate`, { sessionId, topic });
+export const usage = (): Promise<{ planName?: string; used?: number; limit?: number; remaining?: number; resetsAt?: string; enforced?: boolean }> =>
+  farm() ? nf.usage() : get(`${BASE}/usage`);
 
 export interface ConfirmResult {
   success: boolean;
@@ -109,7 +116,7 @@ export interface ConfirmResult {
   blocks?: AnswerBlock[] | null;
 }
 
-export const confirmAction = (sessionId: string, a: ProposedAction) =>
+export const confirmAction = (sessionId: string, a: ProposedAction): Promise<ConfirmResult> => farm() ? nf.confirmAction(sessionId, a) :
   post<ConfirmResult>(`${BASE}/${sessionId}/confirm-action`, { kind: a.kind, payloadJson: a.payloadJson, nonce: a.nonce });
 
 // ── Attachments ─────────────────────────────────────────────────────────────────────────────────────
@@ -133,6 +140,7 @@ const MAX_TEXT = 20_000;
 
 export function attachmentKind(path: string): Attachment["kind"] | undefined {
   const ext = extname(path).toLowerCase();
+  if (farm() && nf.isDocument(path)) return "table";
   if (TABLE.has(ext)) return "table";
   if (ext in IMAGE) return "image";
   if (TEXT.has(ext)) return "text";
@@ -169,6 +177,7 @@ export async function attach(path: string, sessionId?: string): Promise<Attachme
     const cut = raw.length > MAX_TEXT;
     return { path, name, kind, text: cut ? raw.slice(0, MAX_TEXT) : raw, summary: tr(`${raw.length.toLocaleString("vi-VN")} ký tự${cut ? ", đã cắt" : ""}`, `${raw.length} chars${cut ? ", truncated" : ""}`) };
   }
+  if (farm()) return nf.attachBinary(path, kind);
   if (size > MAX_BYTES) throw new CliError(tr("Tệp quá lớn (tối đa 10 MB).", "File too large (max 10 MB)."), Exit.usage);
   const body = readFileSync(path);
   if (kind === "table") {
@@ -215,6 +224,10 @@ export interface AskOutcome {
   activities: ActivityDto[];
   proposedAction?: ProposedAction;
   ended: "done" | "error" | "escalate" | "delivered_to_agent";
+  /** Conversation the answer belongs to, when the server created one for this question (NextFarm). */
+  sessionId?: string;
+  /** Choices of a clarifying question, offered as numbered follow-ups (NextFarm). */
+  followUps?: string[];
 }
 
 /**
@@ -222,6 +235,7 @@ export interface AskOutcome {
  * so the server replays the stored answer instead of answering (and charging) twice.
  */
 export async function ask(input: AskInput): Promise<AskOutcome> {
+  if (farm()) return nf.ask(input);
   const key = randomUUID();
   const body = {
     sessionId: input.sessionId,
@@ -311,13 +325,15 @@ async function* sse(stream: AsyncIterable<Uint8Array>): AsyncGenerator<StreamChu
 
 // ── Write risk ──────────────────────────────────────────────────────────────────────────────────────
 
-export type Risk = "normal" | "large" | "finance";
+/** device = pumps, valves, drones, automation rules (NextFarm). Like finance, never confirmed from the terminal. */
+export type Risk = "normal" | "large" | "finance" | "device";
 
 const FINANCE = /payment|invoice|einvoice|finance|refund|payout|wallet|billing|thanh.?toan|hoa.?don|tien/i;
 const LARGE = /delete|remove|merge|bulk|batch|mass|permission|role|group|xoa|gop|hang.?loat|campaign|broadcast/i;
 
 /** Large = deletes, merges, permission changes, > 20 records or recipients. Finance never runs from the terminal. */
 export function riskOf(a: ProposedAction): Risk {
+  if (a.risk) return a.risk;
   if (FINANCE.test(a.kind)) return "finance";
   if (LARGE.test(a.kind)) return "large";
   if ((a.recipientCount ?? 0) > 20) return "large";

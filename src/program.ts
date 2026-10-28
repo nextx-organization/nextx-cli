@@ -8,6 +8,7 @@ import { tr } from "./core/i18n.js";
 import { registerAuth } from "./commands/auth.js";
 import { registerWorkspace } from "./commands/workspace.js";
 import { registerAi, runRoot } from "./commands/ai.js";
+import { registerModel } from "./commands/model.js";
 import { registerTools } from "./commands/tools.js";
 import { registerApi } from "./commands/api.js";
 import { registerKeys } from "./commands/keys.js";
@@ -16,6 +17,7 @@ import { registerDocs } from "./commands/docs.js";
 import { registerMcp } from "./commands/mcp.js";
 import { registerUtil } from "./commands/util.js";
 import { registerHelp } from "./commands/help.js";
+import { registerCi } from "./commands/ci.js";
 
 export interface RootFlags extends GlobalFlags {
   print?: string | boolean;
@@ -47,6 +49,7 @@ export function buildProgram(): Command {
     .option("--sandbox", tr("dùng môi trường thử nghiệm", "use the sandbox environment"))
     .option("-w, --workspace <code>", tr("chạy lệnh này trên workspace khác", "run this command on another workspace"))
     .option("--agent <code>", tr("chọn Agent thay cho Trợ lý chung", "choose an Agent instead of the general assistant"))
+    .option("--model <provider/name>", tr("dùng model của bạn qua MCP: claude, gemini, gpt, grok, ollama/<tên>", "use your own model over MCP: claude, gemini, gpt, grok, ollama/<name>"))
     .addOption(new Option("--mode <mode>", tr("chế độ quyền", "permission mode")).choices(["read", "propose", "auto"]))
     .addOption(new Option("--output-format <format>", tr("định dạng đầu ra", "output format")).choices(["text", "json", "stream-json"]))
     .option("--json", tr("viết tắt của --output-format json", "shorthand for --output-format json"))
@@ -72,12 +75,14 @@ export function buildProgram(): Command {
   registerAuth(program);
   registerWorkspace(program);
   registerAi(program);
+  registerModel(program);
   registerTools(program);
   registerApi(program);
   registerKeys(program);
   registerWebhooks(program);
   registerDocs(program);
   registerMcp(program);
+  registerCi(program);
   registerUtil(program);
   registerHelp(program);
   for (const sub of program.commands) addGlobals(sub);

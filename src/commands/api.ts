@@ -1,5 +1,6 @@
 import type { Command } from "commander";
 import { readFileSync } from "node:fs";
+import { brand } from "../core/brand.js";
 import { context } from "../core/context.js";
 import { CliError, Exit } from "../core/errors.js";
 import { tr } from "../core/i18n.js";
@@ -32,7 +33,7 @@ interface Paged {
 export function registerApi(program: Command): void {
   program
     .command("api <method> <path>")
-    .description(tr("gọi thẳng API (vd: api GET /crm/contacts -f q=Minh)", "call the API directly (e.g. api GET /crm/contacts -f q=Minh)"))
+    .description(tr(`gọi thẳng API (vd: api ${brand().apiExample})`, `call the API directly (e.g. api ${brand().apiExample})`))
     .option("-f, --raw-field <key=value>", tr("tham số dạng chuỗi: query với GET/DELETE, thân JSON với POST/PUT/PATCH (lặp được)", "string parameter: query for GET/DELETE, JSON body for POST/PUT/PATCH (repeatable)"), (v: string, p: string[] = []) => [...p, v])
     .option("-F, --field <key=value>", tr("như -f nhưng đoán kiểu: số, true/false, JSON", "like -f but typed: numbers, true/false, JSON"), (v: string, p: string[] = []) => [...p, v])
     .option("--input <file>", tr("thân request từ tệp JSON (- = stdin)", "request body from a JSON file (- = stdin)"))
@@ -65,7 +66,7 @@ export function registerApi(program: Command): void {
       let page = Number(query?.pageNumber ?? query?.page ?? 1);
       for (;;) {
         const q = o.paginate ? { ...query, pageNumber: page } : query;
-        const r = await request<unknown>(method, path, { query: q, body, headers, idempotencyKey: o.idempotencyKey });
+        const r = await request<unknown>(method, path, { query: q, body, headers, idempotencyKey: o.idempotencyKey, verbatim: true });
         if (o.include) {
           info(c.dim(`HTTP ${r.status}`));
           (r.headers as Headers).forEach?.((v, k) => info(c.dim(`${k}: ${v}`)));

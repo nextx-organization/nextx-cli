@@ -22,7 +22,7 @@ export function browserAvailable(): boolean {
 
 export async function usage(): Promise<{ planName?: string; used?: number; limit?: number; remaining?: number; resetsAt?: string; enforced?: boolean } | undefined> {
   try {
-    return await get("/operator/widget/support/usage");
+    return await (await import("../ai/client.js")).usage();
   } catch {
     return undefined;
   }
@@ -32,8 +32,8 @@ function printLogin(r: LoginResult): void {
   const p = getProfile(context().profile);
   ok(tr(`Đã đăng nhập ${c.bold(r.userName ?? "")} (${r.userEmail ?? ""})`, `Logged in as ${c.bold(r.userName ?? "")} (${r.userEmail ?? ""})`));
   info(`  ${tr("Workspace", "Workspace")}  ${c.bold(r.workspaceName ?? p?.workspaceName ?? "")}  · ${context().env === "prod" ? "prod" : c.yellow("sandbox")}`);
-  info(`  ${tr("Phiên", "Session")}      ${tr("tự gia hạn khi dùng, hết hạn nếu bỏ không 30 ngày", "renews while used, expires after 30 idle days")} · ${storageKind() === "keychain" ? "Keychain" : tr("tệp 0600", "0600 file")}`);
-  info(c.dim(`  ${tr("Thử", "Try")}: ${brand().bin}  ·  ${brand().bin} -p "${tr("doanh thu hôm qua", "yesterday's revenue")}"  ·  ${brand().bin} help`));
+  info(`  ${tr("Phiên", "Session")}      ${r.session.via === "ci" ? tr("15 phút, không gia hạn — hết thì đăng nhập CI lại", "15 minutes, no renewal — logs in again through CI when it ends") : tr("tự gia hạn khi dùng, hết hạn nếu bỏ không 30 ngày", "renews while used, expires after 30 idle days")} · ${storageKind() === "keychain" ? "Keychain" : tr("tệp 0600", "0600 file")}`);
+  info(c.dim(`  ${tr("Thử", "Try")}: ${brand().bin}  ·  ${brand().bin} -p "${tr(brand().example.vi, brand().example.en)}"  ·  ${brand().bin} help`));
 }
 
 export function registerAuth(program: Command): void {
@@ -50,6 +50,12 @@ export function registerAuth(program: Command): void {
     .action(async (o: { web?: boolean; qr?: boolean; device?: boolean; ci?: boolean; browser?: boolean }) => {
       const ws = context().workspace;
       let r: LoginResult;
+      if ((o.ci && b.notYet?.includes("ci")) || (o.device && b.notYet?.includes("device"))) {
+        const { notYetError } = await import("../core/errors.js");
+        throw notYetError(
+          tr(`${b.name} chưa mở ${o.ci ? "đăng nhập CI bằng OIDC" : "đăng nhập bằng mã thiết bị"}`, `${b.name} does not offer ${o.ci ? "CI OIDC login" : "device-code login"} yet`),
+          o.ci ? tr(`dùng khoá API: ${b.envPrefix}_API_KEY`, `use an API key: ${b.envPrefix}_API_KEY`) : tr(`dùng ${b.bin} login --qr (quét bằng app ${b.mobileApp}) hoặc --no-browser`, `use ${b.bin} login --qr (scan with the ${b.mobileApp} app) or --no-browser`));
+      }
       if (o.ci) r = await loginCi({ workspace: ws });
       else if (o.device) r = await loginDevice({ workspace: ws });
       else if (o.qr || (!o.web && !browserAvailable())) r = await loginQr({ workspace: ws });

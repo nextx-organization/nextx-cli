@@ -12,10 +12,14 @@ import { getProfile, updateProfile } from "../core/config.js";
 import { hasTty, confirm, confirmTyped, select } from "../core/prompt.js";
 import { requirePerson, withWorkspace } from "../auth/session.js";
 import {
-  ask, attach, composeText, confirmAction, listConversations, openConversation, renameConversation, pinConversation,
+  ask, attach, attachmentKind, composeText, confirmAction, listConversations, openConversation, renameConversation, pinConversation,
   deleteConversation, history, riskOf, confirmWord, type AskOutcome, type Attachment, type ProposedAction, type AnswerBlock,
 } from "../ai/client.js";
 import type { RootFlags } from "../program.js";
+import { LocalChat } from "../ai/local.js";
+import { mcpToken } from "../auth/mcp-oauth.js";
+import { defaultModel, resolveModel, type ResolvedModel } from "../ai/models.js";
+import { registerAiNextFarm } from "./ai-nextfarm.js";
 
 // ── NEXTX.md ───────────────────────────────────────────────────────────────────────────────────────
 
@@ -72,7 +76,8 @@ export function renderBlocks(blocks: AnswerBlock[] | null | undefined): string[]
 export function proposalCard(a: ProposedAction): string[] {
   const env = context().env === "prod" ? c.red(tr("GHI VÀO PROD", "WRITES TO PROD")) : c.yellow("SANDBOX");
   const risk = riskOf(a);
-  const tag = risk === "large" ? c.red(tr("GHI LỚN · ", "LARGE WRITE · ")) : risk === "finance" ? c.red(tr("TÀI CHÍNH · ", "FINANCE · ")) : "";
+  const tag = risk === "large" ? c.red(tr("GHI LỚN · ", "LARGE WRITE · ")) : risk === "finance" ? c.red(tr("TÀI CHÍNH · ", "FINANCE · "))
+    : risk === "device" ? c.red(tr("THIẾT BỊ · ", "DEVICE · ")) : "";
   const left = a.expiresAt ? Math.max(0, Math.round((Date.parse(a.expiresAt) - Date.now()) / 60000)) : 15;
   const lines = [
     c.yellow(`┌ ${tr("Đề xuất", "Proposal")} `) + tag + env + c.yellow(` · ${tr(`hết hạn sau ${left} phút`, `expires in ${left} min`)}`),
@@ -95,13 +100,16 @@ export async function handleProposal(sessionId: string, a: ProposedAction, mode 
     return { written: false, message: r.message };
   }
   const risk = riskOf(a);
-  const resume = `${brand().bin} -r ${sessionId}`;
+  // NextFarm proposals are confirmed by id; the default platform's by reopening the conversation.
+  const resume = brand().platform === "nextfarm" ? `${brand().bin} ai apply ${a.nonce}` : `${brand().bin} -r ${sessionId}`;
   if (mode === "read") {
     info(c.dim(tr("  Chế độ chỉ đọc: không ghi. Đổi chế độ: --mode propose", "  Read-only mode: nothing written. Switch with --mode propose")));
     return { written: false };
   }
-  if (risk === "finance") {
-    info(c.dim(tr(`  Việc tài chính chỉ xác nhận trong app: ${context().endpoints.app}`, `  Finance actions are confirmed in the app only: ${context().endpoints.app}`)));
+  if (risk === "finance" || risk === "device") {
+    info(c.dim(risk === "device"
+      ? tr(`  Việc chạm thiết bị / tự động hoá chỉ xác nhận trong app: ${context().endpoints.app}`, `  Device and automation actions are confirmed in the app only: ${context().endpoints.app}`)
+      : tr(`  Việc tài chính chỉ xác nhận trong app: ${context().endpoints.app}`, `  Finance actions are confirmed in the app only: ${context().endpoints.app}`)));
     return { written: false };
   }
   if (!hasTty()) {
@@ -152,16 +160,49 @@ export async function resolveConversation(o: RootFlags): Promise<string> {
 
 export async function runRoot(o: RootFlags, words: string[]): Promise<void> {
   const printMode = o.print !== undefined && o.print !== false;
+  const spec = o.model ?? defaultModel();
+  const model = spec ? resolveModel(spec) : undefined;
   if (!printMode && hasTty() && outputFormat() === "text") {
     await requirePerson();
+    // The MCP grant may need a browser round-trip; do it before the chat UI owns the terminal.
+    if (model) await mcpToken({ interactive: true });
     const { startRepl } = await import("../repl/index.js");
-    return withWorkspace(context().workspace, () => startRepl({ flags: o, initialQuestion: words.join(" ").trim() || undefined }));
+    return withWorkspace(context().workspace, () => startRepl({ flags: o, initialQuestion: words.join(" ").trim() || undefined, model }));
   }
   const q = [typeof o.print === "string" ? o.print : "", ...words].join(" ").trim();
   const piped = await readStdin();
-  if (!q && !piped) throw new CliError(tr(`Thiếu câu hỏi. Ví dụ: ${brand().bin} -p "doanh thu hôm qua"`, `Missing question. Example: ${brand().bin} -p "yesterday's revenue"`), Exit.usage);
+  if (!q && !piped) throw new CliError(tr(`Thiếu câu hỏi. Ví dụ: ${brand().bin} -p "${brand().example.vi}"`, `Missing question. Example: ${brand().bin} -p "${brand().example.en}"`), Exit.usage);
   await requirePerson();
-  await withWorkspace(context().workspace, () => printAsk(o, q || tr("Xử lý nội dung đính kèm.", "Process the attached content."), piped));
+  const question = q || tr("Xử lý nội dung đính kèm.", "Process the attached content.");
+  await withWorkspace(context().workspace, () => (model ? printLocal(o, model, question, piped) : printAsk(o, question, piped)));
+}
+
+/** -p with --model: same output contract as the platform assistant, answered by the user's model. */
+async function printLocal(o: RootFlags, model: ResolvedModel, question: string, piped: string): Promise<void> {
+  const attachments: Attachment[] = [];
+  for (const f of (o.file ?? []).slice(0, 3)) {
+    if (attachmentKind(f) !== "text") throw new CliError(tr(`Model riêng chỉ đọc tệp chữ: ${f}`, `Your own model reads text files only: ${f}`), Exit.usage);
+    attachments.push(await attach(f));
+  }
+  if (piped) attachments.push({ path: "-", name: "stdin", kind: "text", text: piped.slice(0, 20_000) });
+  const fmt = outputFormat();
+  const chat = new LocalChat(model, hasTty(), context().mode === "read");
+  const outcome = await chat.ask({
+    text: composeText(question, attachments, findProjectNotes()?.text),
+    onChunk: (ch) => {
+      if (fmt === "stream-json") return json(ch);
+      if (fmt !== "text") return;
+      if (ch.type === "token") process.stdout.write(ch.text ?? "");
+      else if (ch.type === "activity" && ch.activity && !o.quiet) process.stderr.write(c.dim(`⏺ ${ch.activity.label}\n`));
+    },
+  });
+  if (fmt === "json")
+    json({ model: model.label, text: outcome.text, notices: outcome.notices, tools: outcome.activities.map((a) => a.toolName), workspace: getProfile(context().profile)?.workspaceCode ?? null, env: context().env, ended: outcome.ended });
+  else if (fmt === "text") {
+    if (outcome.text && !outcome.text.endsWith("\n")) process.stdout.write("\n");
+    for (const n of outcome.notices) process.stderr.write(`${c.yellow("⚠")} ${n.message}\n`);
+  }
+  if (outcome.ended === "error") process.exitCode = Exit.general;
 }
 
 async function printAsk(o: RootFlags, question: string, piped: string): Promise<void> {
@@ -187,12 +228,13 @@ async function printAsk(o: RootFlags, question: string, piped: string): Promise<
     },
     onRetry: (n) => stderr.write(c.yellow(tr(`⚠ Mất kết nối, đang nối lại (${n}/2)…\n`, `⚠ Connection lost, reconnecting (${n}/2)…\n`))),
   });
-  updateProfile(context().profile, { lastConversation: sessionId });
+  const conversationId = outcome.sessionId || sessionId;
+  updateProfile(context().profile, { lastConversation: conversationId });
 
   const proposal = outcome.proposedAction;
   if (fmt === "json") {
     json({
-      conversationId: sessionId,
+      conversationId,
       runId: outcome.runId ?? null,
       messageId: outcome.done?.messageId ?? null,
       text: outcome.text,
@@ -200,7 +242,8 @@ async function printAsk(o: RootFlags, question: string, piped: string): Promise<
       followUps: outcome.done?.followUps ?? [],
       notices: outcome.notices,
       agent: outcome.agent ?? null,
-      proposals: proposal ? [{ kind: proposal.kind, label: proposal.label, prompt: proposal.confirmPrompt, writes: proposal.writes, expiresAt: proposal.expiresAt ?? null, risk: riskOf(proposal), confirm: `${brand().bin} -r ${sessionId}` }] : [],
+      proposals: proposal ? [{ kind: proposal.kind, label: proposal.label, prompt: proposal.confirmPrompt, writes: proposal.writes, expiresAt: proposal.expiresAt ?? null, risk: riskOf(proposal),
+        confirm: brand().platform === "nextfarm" ? `${brand().bin} ai apply ${proposal.nonce}` : `${brand().bin} -r ${conversationId}` }] : [],
       workspace: getProfile(context().profile)?.workspaceCode ?? null,
       env: context().env,
       ended: outcome.ended,
@@ -212,7 +255,7 @@ async function printAsk(o: RootFlags, question: string, piped: string): Promise<
     for (const l of renderBlocks(outcome.done?.blocks?.filter((b) => b.type !== "text"))) stdout.write(`${l}\n`);
     if (proposal) {
       for (const l of proposalCard(proposal)) stderr.write(`${l}\n`);
-      await handleProposal(sessionId, proposal);
+      await handleProposal(conversationId, proposal);
     }
   }
   if (outcome.notices.some((n) => n.code === "ai_not_purchased")) process.exitCode = Exit.forbidden;
@@ -333,6 +376,8 @@ export function registerAi(program: Command): void {
       await deleteConversation(id);
       ok(tr("Đã xoá.", "Deleted."));
     });
+
+  if (brand().platform === "nextfarm") return registerAiNextFarm(ai, program);
 
   ai.command("why [runId]")
     .description(tr("vì sao AI trả lời vậy: các bước, công cụ đã gọi", "why the AI answered that way: steps and tools"))
@@ -497,7 +542,7 @@ export function registerAi(program: Command): void {
 
   ai.command("usage").description(tr("lượt AI tháng này", "AI turns this month"))
     .action(async () => {
-      const u = await get<{ planName?: string; used?: number; limit?: number; remaining?: number; resetsAt?: string }>("/operator/widget/support/usage");
+      const u = await (await import("../ai/client.js")).usage();
       emit(u, () => info(`${tr("Gói", "Plan")} ${c.bold(u.planName ?? "-")} · ${tr("đã dùng", "used")} ${u.used ?? 0}${u.limit ? `/${u.limit}` : ""} · ${tr("mở lại", "resets")} ${u.resetsAt?.slice(0, 10) ?? ""}`));
     });
 

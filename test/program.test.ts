@@ -1,8 +1,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { setBrand } from "../src/core/brand.js";
+import { brand, setBrand } from "../src/core/brand.js";
 
-test("cây lệnh nextx: đủ nhóm lệnh, lệnh gạch chéo và mã thoát", async () => {
+/** In a NextFarm-only tree the default brand is gone and these cases do not apply. */
+const onDefaultPlatform = () => { setBrand("nextx"); return brand().platform === "nextx"; };
+const skip = { skip: !onDefaultPlatform() };
+
+test("cây lệnh nextx: đủ nhóm lệnh, lệnh gạch chéo và mã thoát", skip, async () => {
   setBrand("nextx");
   const { buildProgram } = await import("../src/program.js");
   const { helpTree } = await import("../src/commands/help.js");

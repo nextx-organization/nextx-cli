@@ -66,7 +66,7 @@ export async function doctor(): Promise<Check[]> {
       const me = await get<{ email?: string; permissions?: string[]; workspace?: { name: string } }>("/iam/auth/me");
       add(tr("Danh tính", "Identity"), true, `${src} · ${me.email ?? ""} · ${me.workspace?.name ?? ""} · ${me.permissions?.length ?? 0} ${tr("quyền", "permissions")}`);
       try {
-        const u = await get<{ planName?: string; remaining?: number; limit?: number }>("/operator/widget/support/usage");
+        const u = await (await import("../ai/client.js")).usage();
         add(tr("Gói AI", "AI plan"), u.limit === 0 ? "warn" : true, `${u.planName ?? "-"}${u.limit ? ` · ${tr("còn", "left")} ${u.remaining}/${u.limit}` : ""}`);
       } catch {
         // API keys cannot read usage

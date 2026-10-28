@@ -1,12 +1,13 @@
 // Every call to the platform goes through here: identity headers, retry on expired token, error → exit code.
 import { randomUUID } from "node:crypto";
 import { arch, platform } from "node:os";
-import { fetch, EnvHttpProxyAgent, setGlobalDispatcher, type Response } from "undici";
+import { fetch, FormData, EnvHttpProxyAgent, setGlobalDispatcher, type Response } from "undici";
 import { brand } from "./brand.js";
 import { context } from "./context.js";
 import { CliError, Exit } from "./errors.js";
 import { t, currentLang } from "./i18n.js";
 import { VERSION } from "./version.js";
+import { snakeOnWire, snakeKeys, camelKeys } from "./case.js";
 import { currentAuth, refreshSession, type Auth } from "../auth/session.js";
 
 setGlobalDispatcher(new EnvHttpProxyAgent());
@@ -29,6 +30,8 @@ export interface RequestOptions {
   /** Do not throw on these statuses; caller inspects the response. */
   allow?: number[];
   signal?: AbortSignal;
+  /** Send and return keys exactly as given (the raw `api` command). Otherwise NextFarm snake services are converted. */
+  verbatim?: boolean;
 }
 
 export interface HttpResult<T> {
@@ -70,11 +73,12 @@ async function send(method: string, url: string, opts: RequestOptions, auth: Aut
     ...(opts.bearer ? { Authorization: `Bearer ${opts.bearer}` } : opts.anonymous ? {} : authHeaders(auth)),
     ...opts.headers,
   };
-  let body: string | undefined;
+  let body: string | FormData | undefined;
   if (opts.body !== undefined) {
-    if (typeof opts.body === "string") body = opts.body;
+    // Multipart: undici sets the boundary itself, so no Content-Type here.
+    if (opts.body instanceof FormData || typeof opts.body === "string") body = opts.body;
     else {
-      body = JSON.stringify(opts.body);
+      body = JSON.stringify(!opts.verbatim && snakeOnWire(url) ? snakeKeys(opts.body) : opts.body);
       headers["Content-Type"] ??= "application/json";
     }
   }
@@ -176,7 +180,8 @@ export async function request<T = unknown>(method: string, path: string, opts: R
   }
   const requestId = res.headers.get("x-request-id") ?? undefined;
   if (opts.raw) return { status: res.status, data: res as unknown as T, headers: res.headers as unknown as Headers, requestId };
-  const data = await readBody(res);
+  const body = await readBody(res);
+  const data = !opts.verbatim && snakeOnWire(res.url || path) ? camelKeys(body) : body;
   if (!res.ok && !opts.allow?.includes(res.status)) throw errorFor(res.status, data, res);
   return { status: res.status, data: data as T, headers: res.headers as unknown as Headers, requestId };
 }

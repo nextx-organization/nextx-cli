@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.0
+
+- `--model`: answer with your own model on your machine — Claude, Gemini, GPT, Grok or Ollama — using your workspace tools over MCP. Writes still only create a proposal you confirm. `model add|list|remove|default`, and `/model` switches inside the chat.
+- AI tool access (`tools`, `--model`) now works in workspaces that allow verified AI apps only (the default): the CLI identifies itself with a client metadata document on the developer portal instead of registering a new client.
+- `login --ci`: GitHub Actions / GitLab CI sign in with their OIDC token, no secret. Admins allow a repository with `ci trust add`.
+
 ## 0.1.1
 
 - x64 builds (Intel Mac, Linux, Windows) now target every x64 CPU, including older Intel Macs without AVX2.

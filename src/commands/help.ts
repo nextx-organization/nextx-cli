@@ -4,7 +4,7 @@ import { tr } from "../core/i18n.js";
 import { json } from "../core/output.js";
 import { VERSION } from "../core/version.js";
 import { Exit } from "../core/errors.js";
-import { SLASH, SHORTCUTS } from "../repl/slash.js";
+import { SHORTCUTS, slashCommands } from "../repl/slash.js";
 
 interface CmdDoc {
   name: string;
@@ -39,7 +39,7 @@ export function helpTree(program: Command) {
     version: VERSION,
     brand: b.id,
     root: walk(program),
-    slashCommands: SLASH.map((s) => ({ name: `/${s.name}`, args: s.args ?? null, description: s.description() })),
+    slashCommands: slashCommands().map((s) => ({ name: `/${s.name}`, args: s.args ?? null, description: s.description() })),
     shortcuts: SHORTCUTS.map((s) => ({ keys: s.keys, description: s.description() })),
     exitCodes: Object.entries(Exit).map(([name, code]) => ({ name, code })),
     environment: ["API_KEY", "TOKEN", "PROFILE", "ENV", "WORKSPACE", "LANG", "DEBUG", "NO_UPDATE_CHECK", "NO_KEYCHAIN", "ID_TOKEN"].map((v) => `${b.envPrefix}_${v}`),

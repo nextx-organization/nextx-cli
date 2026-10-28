@@ -1,6 +1,6 @@
 // Slash commands of the chat. One list for the menu, `/help` and `help --json` (docs are generated from it).
 import { tr } from "../core/i18n.js";
-import { brand } from "../core/brand.js";
+import { brand, type PlatformId } from "../core/brand.js";
 
 const notes = () => `${brand().bin.toUpperCase()}.md`;
 
@@ -8,6 +8,8 @@ export interface SlashCommand {
   name: string;
   args?: string;
   description: () => string;
+  /** Only on these backends; unset = everywhere. */
+  platforms?: PlatformId[];
 }
 
 export const SLASH: SlashCommand[] = [
@@ -17,22 +19,25 @@ export const SLASH: SlashCommand[] = [
   { name: "rename", args: "<tên>", description: () => tr("Đặt tên hội thoại này", "Rename this conversation") },
   { name: "pin", description: () => tr("Ghim / bỏ ghim hội thoại", "Pin / unpin this conversation") },
   { name: "workspace", args: "[mã]", description: () => tr("Đổi workspace đang làm việc", "Switch workspace") },
-  { name: "agent", args: "[mã]", description: () => tr("Chọn Agent: Trợ lý chung, Bán hàng, CSKH…", "Choose an Agent: general, sales, support…") },
+  { name: "agent", args: "[mã]", description: () => tr("Chọn Agent: Trợ lý chung, Bán hàng, CSKH…", "Choose an Agent: general, sales, support…"), platforms: ["nextx"] },
   { name: "mode", args: "read|propose|auto", description: () => tr("Chế độ quyền: chỉ đọc · đề xuất · tự ghi việc thường", "Permission mode: read · propose · auto") },
   { name: "model", args: "[tên]", description: () => tr(`Đổi model: ${brand().aiName} hoặc model của bạn`, `Switch model: ${brand().aiName} or your own`) },
   { name: "attach", args: "<tệp>", description: () => tr("Đính kèm tệp Excel / CSV / ảnh / tệp chữ", "Attach an Excel / CSV / image / text file") },
-  { name: "pending", description: () => tr("Đề xuất ghi đang chờ xác nhận", "Writes waiting for confirmation") },
+  { name: "pending", description: () => tr("Đề xuất ghi đang chờ xác nhận", "Writes waiting for confirmation"), platforms: ["nextx"] },
   { name: "undo", args: "[id]", description: () => tr("Hoàn tác lần ghi gần nhất", "Undo the last write") },
-  { name: "journal", description: () => tr("Nhật ký những gì AI đã ghi", "Journal of what the AI wrote") },
+  { name: "journal", description: () => tr("Nhật ký những gì AI đã ghi", "Journal of what the AI wrote"), platforms: ["nextx"] },
   { name: "why", args: "[runId]", description: () => tr("Vì sao AI trả lời vậy (các bước, công cụ đã gọi)", "Why the AI answered that way (steps, tools)") },
   { name: "memory", description: () => tr("AI đang nhớ gì về công ty — sửa, khoá, quên", "What the AI remembers — edit, lock, forget") },
   { name: "schedule", args: '"câu" daily 08:00', description: () => tr("Lên lịch một câu hỏi chạy hằng ngày / tuần / tháng", "Schedule a question daily / weekly / monthly") },
-  { name: "library", description: () => tr("Ảnh, tài liệu, tệp AI đã tạo", "Images, documents and files the AI produced") },
+  { name: "library", description: () => tr("Ảnh, tài liệu, tệp AI đã tạo", "Images, documents and files the AI produced"), platforms: ["nextx"] },
+  { name: "sau-benh", args: "<ảnh>", platforms: ["nextfarm"], description: () => tr("Chẩn đoán sâu bệnh từ ảnh lá, quả, thân", "Diagnose pests and diseases from a photo") },
+  { name: "thoi-tiet", args: "[lô]", platforms: ["nextfarm"], description: () => tr("Thời tiết mấy ngày tới ở trang trại / lô", "Weather for the farm or a plot in the coming days") },
+  { name: "ban-tin", platforms: ["nextfarm"], description: () => tr("Bản tin sáng mới nhất của trang trại", "The farm's latest morning brief") },
   { name: "export", args: "md|json [tệp]", description: () => tr("Xuất hội thoại ra Markdown / JSON", "Export the conversation to Markdown / JSON") },
   { name: "tools", description: () => tr("Công cụ AI bạn đang được dùng (theo quyền thật)", "AI tools you can use (by your real permissions)") },
-  { name: "usage", description: () => tr("Lượt AI tháng này", "AI turns this month") },
+  { name: "usage", description: () => brand().platform === "nextfarm" ? tr("Câu hỏi AI còn lại tuần này", "AI questions left this week") : tr("Lượt AI tháng này", "AI turns this month") },
   { name: "feedback", args: "up|down", description: () => tr("Báo câu trả lời vừa rồi tốt / chưa tốt", "Rate the last answer") },
-  { name: "support", args: "<vấn đề>", description: () => tr("Chuyển cho nhân viên hỗ trợ (mở ticket)", "Hand over to a support agent (ticket)") },
+  { name: "support", args: "<vấn đề>", description: () => tr("Chuyển cho nhân viên hỗ trợ (mở ticket)", "Hand over to a support agent (ticket)"), platforms: ["nextx"] },
   { name: "status", description: () => tr("Tài khoản, workspace, môi trường, phiên bản", "Account, workspace, environment, version") },
   { name: "doctor", description: () => tr("Kiểm kết nối, đồng hồ, token, gói", "Check connectivity, clock, token, plan") },
   { name: "config", args: "[khoá giá_trị]", description: () => tr("Cài đặt: ngôn ngữ, màu, thông báo cập nhật", "Settings: language, color, update notices") },
@@ -57,7 +62,12 @@ export const SHORTCUTS: { keys: string; description: () => string }[] = [
   { keys: "Ctrl+C · Ctrl+D", description: () => tr("Huỷ dòng đang gõ (2 lần để thoát) · thoát", "Clear input (twice to exit) · exit") },
 ];
 
+/** Commands of the current brand's backend — menu, `/help` and `help --json` all read this. */
+export function slashCommands(): SlashCommand[] {
+  return SLASH.filter((s) => !s.platforms || s.platforms.includes(brand().platform));
+}
+
 export function matchSlash(prefix: string): SlashCommand[] {
   const p = prefix.replace(/^\//, "").toLowerCase();
-  return SLASH.filter((s) => s.name.startsWith(p));
+  return slashCommands().filter((s) => s.name.startsWith(p));
 }

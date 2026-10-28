@@ -31,10 +31,11 @@ export class McpClient {
   private token?: string;
   private ready = false;
 
-  constructor(private readonly interactive: boolean, private readonly apiKey?: string) {}
+  /** `url`: MCP endpoint other than the hosted OAuth server (NextFarm API keys go through the gateway's /api/v1/mcp). */
+  constructor(private readonly interactive: boolean, private readonly apiKey?: string, private readonly url?: string) {}
 
   private async rpc<T>(method: string, params?: unknown, notification = false): Promise<T> {
-    const url = context().endpoints.mcp;
+    const url = this.url ?? context().endpoints.mcp;
     this.token ??= this.apiKey ?? (await mcpToken({ interactive: this.interactive }));
     const id = notification ? undefined : this.nextId++;
     const headers: Record<string, string> = {

@@ -57,7 +57,7 @@ export async function loginCi(opts: { workspace?: string }): Promise<LoginResult
   if (!res.ok) {
     if (json.error === "invalid_grant" || json.error === "unauthorized_client")
       throw new CliError(
-        tr(`Kho/nhánh này chưa được phép đăng nhập (${provider}). Quản trị khai báo ở ${ep.app} › Thiết lập › Ứng dụng & API › CI.`, `This repository/branch is not allowed to log in (${provider}). An admin can allow it at ${ep.app} › Settings › Apps & API › CI.`),
+        tr(`Kho/nhánh này chưa được phép đăng nhập (${provider}). Quản trị khai báo ở ${ep.app} › ${brand().ciSettings.vi}.`, `This repository/branch is not allowed to log in (${provider}). An admin can allow it at ${ep.app} › ${brand().ciSettings.en}.`),
         Exit.auth,
         String(json.error_description ?? ""),
       );

@@ -1,7 +1,11 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createHmac } from "node:crypto";
-import { setBrand } from "../src/core/brand.js";
+import { brand, setBrand } from "../src/core/brand.js";
+
+/** In a NextFarm-only tree the default brand is gone and these cases do not apply. */
+const onDefaultPlatform = () => { setBrand("nextx"); return brand().platform === "nextx"; };
+const skip = { skip: !onDefaultPlatform() };
 setBrand("nextx");
 const { verifySignature } = await import("../src/commands/webhooks.js");
 const { parseArgs } = await import("../src/commands/tools.js");
@@ -17,7 +21,7 @@ setLang("vi");
 
 const strip = (s: string) => s.replace(/\u001b\[[0-9;]*m/g, "");
 
-test("chữ ký X-NextX-Signature-256 đúng thì hợp lệ, sửa một byte thì không", () => {
+test("chữ ký X-NextX-Signature-256 đúng thì hợp lệ, sửa một byte thì không", skip, () => {
   const secret = "whsec_dGVzdA==";
   const ts = String(Math.floor(Date.now() / 1000));
   const body = '{"type":"contact.created"}';
@@ -66,7 +70,7 @@ test("mức rủi ro: tài chính, ghi lớn, ghi thường", () => {
   assert.equal(confirmWord({ ...base, kind: "x", payloadJson: "{}", recipientCount: 47 }), "47");
 });
 
-test("đính kèm: nhận đúng loại, từ chối PDF", async () => {
+test("đính kèm: nhận đúng loại, từ chối PDF", skip, async () => {
   assert.equal(attachmentKind("a.xlsx"), "table");
   assert.equal(attachmentKind("A.CSV"), "table");
   assert.equal(attachmentKind("chup.png"), "image");
@@ -120,4 +124,26 @@ test("thời hạn khoá: 90d, 6m, sai cú pháp", () => {
   const d = Date.parse(parseDuration("90d"));
   assert.ok(Math.abs(d - (Date.now() + 90 * 86400e3)) < 5000);
   assert.throws(() => parseDuration("mai"), (e: { exitCode: number }) => e.exitCode === 2);
+});
+
+test("--model: tên nhà, nhà/model, tên lệnh = Trợ lý; thiếu khoá/tên model báo cách sửa", async () => {
+  const { mkdtempSync } = await import("node:fs");
+  const { tmpdir } = await import("node:os");
+  const { join } = await import("node:path");
+  process.env.XDG_CONFIG_HOME = mkdtempSync(join(tmpdir(), "nx-model-"));
+  process.env.NEXTX_NO_KEYCHAIN = "1";
+  const { resolveModel } = await import("../src/ai/models.js");
+  const { brand } = await import("../src/core/brand.js");
+  assert.equal(resolveModel(brand().bin), undefined);
+  process.env.ANTHROPIC_API_KEY = "k";
+  assert.equal(resolveModel("claude")?.model, "claude-opus-5-5");
+  assert.equal(resolveModel("claude/claude-sonnet-5-5")?.label, "claude/claude-sonnet-5-5");
+  const o = resolveModel("ollama/qwen3:32b");
+  assert.equal(o?.baseUrl, "http://localhost:11434/v1");
+  assert.equal(o?.apiKey, undefined);
+  assert.throws(() => resolveModel("gpt"), /Cần tên model/);
+  delete process.env.OPENAI_API_KEY;
+  assert.throws(() => resolveModel("gpt/x"), /Chưa có khoá/);
+  assert.throws(() => resolveModel("abc"), /Không biết nhà model/);
+  delete process.env.ANTHROPIC_API_KEY;
 });
