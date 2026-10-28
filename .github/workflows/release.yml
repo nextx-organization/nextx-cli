@@ -74,7 +74,7 @@ jobs:
           cd dist-release
           node ../dist/bin/nextx.js help --json --lang vi > help-vi.json
           node ../dist/bin/nextx.js help --json --lang en > help-en.json
-          sha256sum *.tar.gz *.zip > SHA256SUMS
+          sha256sum -- *.tar.gz *.zip > SHA256SUMS
           node ../scripts/package-managers.mjs "${GITHUB_REF_NAME#v}" SHA256SUMS
           ls -la
       - name: GitHub release
