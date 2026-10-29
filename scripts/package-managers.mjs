@@ -11,12 +11,21 @@ const url = (f) => `https://github.com/${repo}/releases/download/v${version}/${f
 const asset = (os, arch, ext = "tar.gz") => `${bin}-${os}-${arch}.${ext}`;
 const cls = bin.charAt(0).toUpperCase() + bin.slice(1).replace(/-(\w)/g, (_, c) => c.toUpperCase());
 
+// Homebrew audit: under 80 characters and not starting with the formula name.
+const ai = /chat with (.+?) on /.exec(pkg.description)?.[1] ?? "the assistant";
+const desc = `Command-line client for ${ai}: chat, API, keys and webhooks`;
+if (desc.length >= 80) throw new Error(`formula desc too long: ${desc}`);
+
 const block = (os, arch) => `      url "${url(asset(os, arch))}"\n      sha256 "${sha[asset(os, arch)]}"`;
 writeFileSync(`${bin}.rb`, `class ${cls} < Formula
-  desc "${pkg.description.replace(/"/g, "'")}"
+  desc "${desc}"
   homepage "${pkg.homepage}"
-  version "${version}"
   license "MIT"
+
+  livecheck do
+    url :stable
+    strategy :github_latest
+  end
 
   on_macos do
     on_arm do

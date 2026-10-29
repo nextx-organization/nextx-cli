@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.4
+
+- Every file in a GitHub release now has a signed build provenance attestation: `gh attestation verify <file> --repo <owner/repo>`. Release notes list the install commands and how to verify a download.
+- Security reports go through GitHub's private vulnerability reporting on this repository.
+
 ## 0.3.3
 
 - Maintenance release: tidier source comments, no change in behaviour.

@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/nextx-organization/nextx-cli/security/advisories/new
+    about: Report privately — do not open a public issue.
+  - name: Documentation
+    url: https://developers.nextx.vn/docs/cli
+    about: Commands, login methods and examples.

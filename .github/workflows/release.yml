@@ -73,6 +73,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      id-token: write
+      attestations: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -88,13 +90,39 @@ jobs:
           sha256sum -- *.tar.gz *.zip > SHA256SUMS
           node ../scripts/package-managers.mjs "${GITHUB_REF_NAME#v}" SHA256SUMS
           ls -la
+      # Signed build provenance for every published file: `gh attestation verify <file> --repo nextx-organization/nextx-cli`.
+      - uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            dist-release/*.tar.gz
+            dist-release/*.zip
+            dist-release/SHA256SUMS
       - name: GitHub release
         env: { GH_TOKEN: "${{ github.token }}" }
         run: |
           v="${GITHUB_REF_NAME#v}"
-          notes="$(awk -v v="## $v" '$0==v{f=1;next} /^## /{f=0} f' CHANGELOG.md)"
+          changes="$(awk -v v="## $v" '$0==v{f=1;next} /^## /{f=0} f' CHANGELOG.md)"
+          {
+            echo "## What's changed"
+            echo "${changes:-Release $v}"
+            echo
+            echo "## Install"
+            echo '```bash'
+            echo "curl -fsSL https://developers.nextx.vn/install.sh | sh"
+            echo "brew install nextx-organization/nextx/nextx"
+            echo "npm install -g @nextxai/cli"
+            echo '```'
+            echo "Windows: \`irm https://developers.nextx.vn/install.ps1 | iex\` or \`scoop bucket add nextx https://github.com/nextx-organization/homebrew-nextx\`."
+            echo
+            echo "## Verify"
+            echo '```bash'
+            echo "shasum -a 256 -c SHA256SUMS --ignore-missing"
+            echo "gh attestation verify nextx-darwin-arm64.tar.gz --repo nextx-organization/nextx-cli"
+            echo '```'
+            echo "npm packages carry provenance; see the package page on npmjs.com."
+          } > notes.md
           pre=""; case "$v" in *-*) pre="--prerelease";; esac
-          gh release create "$GITHUB_REF_NAME" dist-release/* --title "$GITHUB_REF_NAME" --notes "${notes:-Release $v}" $pre
+          gh release create "$GITHUB_REF_NAME" dist-release/* --title "$GITHUB_REF_NAME" --notes-file notes.md $pre
       - uses: actions/upload-artifact@v4
         with: { name: package-managers, path: "dist-release/nextx.rb\ndist-release/nextx.json" }
 
@@ -127,26 +155,36 @@ jobs:
     if: vars.TAP_ENABLED == 'true' && !contains(github.ref_name, '-')
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/create-github-app-token@v1
+      - uses: actions/create-github-app-token@v2
         id: app
         with:
           app-id: ${{ vars.BOT_APP_ID }}
           private-key: ${{ secrets.BOT_PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
           repositories: homebrew-nextx
-      - uses: actions/checkout@v4
-        with: { repository: "${{ github.repository_owner }}/homebrew-nextx", token: "${{ steps.app.outputs.token }}", path: tap }
       - uses: actions/download-artifact@v4
         with: { name: package-managers, path: pm }
       - name: Update formula + scoop manifest
+        env: { GH_TOKEN: "${{ steps.app.outputs.token }}" }
         run: |
-          mkdir -p tap/Formula tap/bucket
-          cp pm/nextx.rb tap/Formula/nextx.rb
-          cp pm/nextx.json tap/bucket/nextx.json
-          cd tap
-          git config user.name "NextX CLI Bot"
-          git config user.email "support@nextx.vn"
-          git add Formula bucket
-          git diff --cached --quiet || git commit -m "nextx ${GITHUB_REF_NAME}"
-          # Several CLIs share the tap and release at the same time: rebase onto theirs and retry.
-          for i in 1 2 3 4 5; do git push && exit 0; git pull --rebase; sleep $((i * 3)); done; exit 1
+          # The commit is created through the API by the App, so GitHub signs it (Verified). Several CLIs share a tap and can
+          # release at the same moment: on a moved head, re-read it and retry.
+          for i in 1 2 3 4 5; do
+            head=$(gh api "repos/${{ github.repository_owner }}/homebrew-nextx/commits/main" --jq .sha)
+            same=1
+            for f in Formula/nextx.rb bucket/nextx.json; do
+              src="pm/$(basename "$f")"
+              cur=$(gh api "repos/${{ github.repository_owner }}/homebrew-nextx/contents/$f?ref=$head" --jq .content 2>/dev/null | base64 -d 2>/dev/null || true)
+              [ "$cur" = "$(cat "$src")" ] || same=0
+            done
+            [ $same = 1 ] && { echo "tap already at ${GITHUB_REF_NAME}"; exit 0; }
+            jq -n --arg repo "${{ github.repository_owner }}/homebrew-nextx" --arg head "$head" --arg msg "nextx ${GITHUB_REF_NAME}" \
+              --arg rb "$(base64 -w0 pm/nextx.rb)" --arg js "$(base64 -w0 pm/nextx.json)" '{
+                query: "mutation($i: CreateCommitOnBranchInput!) { createCommitOnBranch(input: $i) { commit { oid } } }",
+                variables: { i: { branch: { repositoryNameWithOwner: $repo, branchName: "main" }, expectedHeadOid: $head,
+                  message: { headline: $msg },
+                  fileChanges: { additions: [ { path: "Formula/nextx.rb", contents: $rb }, { path: "bucket/nextx.json", contents: $js } ] } } } }' > commit.json
+            gh api graphql --input commit.json --jq .data.createCommitOnBranch.commit.oid && exit 0
+            sleep $((i * 3))
+          done
+          exit 1

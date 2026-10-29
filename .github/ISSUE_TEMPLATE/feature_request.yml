@@ -1,0 +1,13 @@
+name: Feature request
+description: Suggest a command or option for nextx
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do?
+    validations: { required: true }
+  - type: textarea
+    id: proposal
+    attributes:
+      label: How would you like it to work?
