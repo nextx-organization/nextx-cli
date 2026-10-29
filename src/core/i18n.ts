@@ -89,7 +89,7 @@ export function t(key: string, vars: Record<string, string | number> = {}): stri
   return (dict[key] ?? vi[key] ?? key).replace(/\{(\w+)\}/g, (_, k: string) => String(all[k] ?? `{${k}}`));
 }
 
-/** Inline bilingual helper for one-off strings: tr("Đã lưu", "Saved"). */
+/** Inline bilingual helper for one-off strings: tr(vietnamese, english). */
 export function tr(viText: string, enText: string): string {
   return currentLang() === "en" ? enText : viText;
 }

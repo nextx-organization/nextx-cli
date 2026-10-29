@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.3
+
+- Maintenance release: tidier source comments, no change in behaviour.
+
 ## 0.3.2
 
 - `tools list`, the MCP sign-in and help examples follow the modules your product offers.

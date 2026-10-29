@@ -30,7 +30,7 @@ interface Policy {
 interface Trust { id: string; repository: string; provider: string; refPattern: string; revokedAt?: string | null }
 
 const BASE = "/ai/ci-write-policies";
-// Ví dụ + nơi duyệt theo nền tảng: có nền tảng ghi theo loại dòng nhật ký, nền tảng mặc định theo mã quyền ghi.
+// Examples and the approval screen differ per platform: some write by entry kind, others by permission code.
 const exampleKinds = () => brand().examples.ciKinds;
 function approvePlace(): string {
   return tr("Thiết lập › Ứng dụng & API › CI", "Settings › Apps & API › CI");
@@ -49,7 +49,7 @@ function stateLabel(s: Policy["state"]): string {
 }
 
 async function findPolicy(id: string): Promise<Policy> {
-  // Id UUID v7: 8 ký tự ĐẦU trùng nhau giữa các chính sách tạo cùng lúc (tiền tố thời gian) ⇒ bảng hiện 8 ký tự CUỐI, tìm khớp cả hai đầu.
+  // UUID v7 ids share their first characters (time prefix), so the table shows the LAST 8 and lookup matches either end.
   const all = (await get<{ items: Policy[] }>(BASE)).items;
   const hits = all.filter((x) => x.id === id || x.id.startsWith(id) || x.id.endsWith(id));
   if (hits.length > 1) throw new CliError(tr("Mã ngắn trùng nhiều chính sách — gõ thêm ký tự.", "Short id matches several policies — type more characters."), Exit.usage);

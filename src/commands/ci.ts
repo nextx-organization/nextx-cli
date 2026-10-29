@@ -45,7 +45,7 @@ jobs:
       - run: npx -y ${b.pkg} -p "${tr(b.example.vi, b.example.en)}" --json > report.json`;
 }
 
-/** Mẫu CI có GHI: chỉ chạy được sau khi quản trị mở phạm vi (ci trust set --allow … --max-per-run …). */
+/** Sample CI job that writes: works once an admin approves a pre-approval policy (`ci policy request`). */
 export function workflowWriteSample(repo = "acme/web", ws = "my-workspace"): string {
   const b = brand();
   return `# .github/workflows/follow-up.yml  (${repo})
@@ -110,7 +110,7 @@ export function registerCi(program: Command): void {
     ok(tr("Đã thu hồi.", "Revoked."));
   });
 
-  // Chính sách duyệt trước: cùng hợp đồng /ai/ci-write-policies trên mọi nền tảng.
+  // Pre-approval policies: the same /ai/ci-write-policies contract on every platform.
   registerCiPolicy(ci);
 
   ci.command("example").description(tr("in mẫu workflow GitHub Actions", "print a sample GitHub Actions workflow"))

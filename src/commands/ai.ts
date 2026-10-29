@@ -94,19 +94,19 @@ export function proposalCard(a: ProposedAction): string[] {
  * Rules (docs §2.6): read mode never writes; finance never from the terminal; no TTY ⇒ never;
  * large writes need the typed number; auto mode skips the y/N for normal writes only.
  */
-/** Thẻ đăng nhập CI (login --ci): không có người bấm, máy chủ quyết theo chính sách duyệt trước (ci policy). */
+/** A `login --ci` session has nobody to press confirm: the server decides from the pre-approval policy (`ci policy`). */
 async function isCiSession(): Promise<boolean> {
   const { currentAuth } = await import("../auth/session.js");
   const a = await currentAuth().catch(() => undefined);
   return a?.kind === "session" && a.session.via === "ci";
 }
 
-/** Lệnh để người xác nhận đề xuất sau: nền tảng mặc định mở lại hội thoại, nền tảng khác có thể theo id đề xuất. */
+/** Command a person runs to confirm later: reopen the conversation, or confirm by proposal id where the platform supports it. */
 function confirmHint(nonce: string, conversationId: string): string {
   return `${brand().bin} -r ${conversationId}`;
 }
 
-/** 403 của cổng ghi CI ⇒ việc chưa ghi, đề xuất còn chờ người duyệt — báo rõ, không coi là lỗi chương trình. */
+/** A 403 from the CI write gate means nothing was written and the proposal still waits for a person — report it, not as a crash. */
 function ciDenied(e: unknown): string | undefined {
   const err = e as CliError;
   return err instanceof CliError && err.exitCode === Exit.forbidden ? err.message : undefined;
@@ -118,7 +118,7 @@ export async function handleProposal(sessionId: string, a: ProposedAction, mode 
     return { written: false, message: r.message };
   }
   const risk = riskOf(a);
-  // Đề xuất của nền tảng mặc định xác nhận bằng cách mở lại hội thoại.
+  // On the default platform a proposal is confirmed by reopening the conversation.
   let resume = `${brand().bin} -r ${sessionId}`;
   if (mode === "read") {
     info(c.dim(tr("  Chế độ chỉ đọc: không ghi. Đổi chế độ: --mode propose", "  Read-only mode: nothing written. Switch with --mode propose")));
@@ -131,7 +131,7 @@ export async function handleProposal(sessionId: string, a: ProposedAction, mode 
     return { written: false };
   }
   if (!hasTty()) {
-    // CI + --mode auto: gửi Xác nhận, máy chủ chỉ ghi trong chính sách duyệt trước của kho này (ci policy).
+    // CI + --mode auto: send the confirmation; the server writes only within this repository's pre-approval policy (ci policy).
     if (brand().platform === "nextx" && mode === "auto" && (await isCiSession())) {
       try {
         const r = await confirmAction(sessionId, a);
@@ -271,7 +271,7 @@ async function printAsk(o: RootFlags, question: string, piped: string): Promise<
     const risk = proposal ? riskOf(proposal) : undefined;
     const allowedRisk = context().mode !== "read" && risk !== "finance" && risk !== "device";
     let applied: { written: boolean; message: string } | undefined;
-    // Nền tảng mặc định: phiên CI + --mode auto ⇒ gửi Xác nhận, máy chủ chỉ ghi trong chính sách duyệt trước (403 ⇒ chưa ghi, kèm lý do).
+    // CI session with --mode auto: send the confirmation; the server writes only within a pre-approval policy (403 = not written, with the reason).
     if (!applied && proposal?.writes && brand().platform === "nextx" && allowedRisk && context().mode === "auto" && !hasTty() && (await isCiSession()))
       applied = await confirmAction(conversationId, proposal).then(
         (r) => ({ written: r.success, message: r.message }),

@@ -107,7 +107,7 @@ function loadKeyring(): KeyringModule | null {
 /**
  * Each backend owns its own keychain items. Sharing one item between the addon (process "node") and the OS tool
  * (`security`) makes macOS move the item's access list to whoever wrote last, and every read by the other one
- * then pops a password dialog (28/10/2026: four dialogs stacked on the user's screen).
+ * then pops a password dialog — several stacked dialogs when calls overlap.
  */
 let osTool = false;
 const service = () => `${brand().bin}-cli${osTool ? "-os" : ""}`;
