@@ -74,8 +74,8 @@ export function registerModel(program: Command): void {
   model
     .command("add <provider>")
     .description(tr(`thêm nhà model: ${Object.keys(PROVIDERS).join(", ")}`, `add a provider: ${Object.keys(PROVIDERS).join(", ")}`))
-    .option("--key-from-stdin", tr("đọc khoá API từ stdin (không bao giờ đưa khoá lên dòng lệnh)", "read the API key from stdin (never put keys on the command line)"))
-    .option("--name <model>", tr("model dùng khi chỉ ghi tên nhà, vd gpt → --name <tên model>", "model used when only the provider is given"))
+    .option("--key-from-stdin", tr("đọc API key từ stdin (không bao giờ đưa khoá lên dòng lệnh)", "read the API key from stdin (never put keys on the command line)"))
+    .option("--name <model>", tr("model dùng khi chỉ ghi tên nhà, vd gpt → --name <model>", "model used when only the provider is given"))
     .option("--url <url>", tr("địa chỉ máy chủ (Ollama hoặc cổng tương thích)", "server address (Ollama or a compatible endpoint)"))
     .action(async (provider: string, o: { keyFromStdin?: boolean; name?: string; url?: string }) => {
       if (!isProvider(provider)) throw new CliError(tr(`Không biết nhà "${provider}".`, `Unknown provider "${provider}".`), Exit.usage, Object.keys(PROVIDERS).join(", "));
@@ -83,7 +83,7 @@ export function registerModel(program: Command): void {
       let key: string | undefined;
       if (info0.needsKey) {
         if (o.keyFromStdin) key = await readAll();
-        else if (hasTty()) key = await readHidden(tr(`Khoá API ${info0.label}: `, `${info0.label} API key: `));
+        else if (hasTty()) key = await readHidden(tr(`API key ${info0.label}: `, `${info0.label} API key: `));
         else throw new CliError(tr("Không có terminal: dùng --key-from-stdin.", "No terminal: use --key-from-stdin."), Exit.usage);
         if (!key) throw new CliError(tr("Khoá rỗng.", "Empty key."), Exit.usage);
       }

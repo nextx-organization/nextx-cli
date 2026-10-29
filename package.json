@@ -1,6 +1,6 @@
 {
   "name": "@nextxai/cli",
-  "version": "0.3.4",
+  "version": "0.3.5",
   "description": "NextX in your terminal: chat with NextX AI on your workspace data, call the API, manage keys and webhooks",
   "keywords": [
     "nextx",

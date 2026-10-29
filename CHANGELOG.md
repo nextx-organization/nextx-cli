@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.5
+
+- Vietnamese help keeps technical terms in English (API key, session, scope, signature, secret, retry, exit code, permission mode, output format, sandbox), and argument placeholders are English everywhere (`/rename <name>`, `/attach <file>`, `/config [key value]`).
+
 ## 0.3.4
 
 - Every file in a GitHub release now has a signed build provenance attestation: `gh attestation verify <file> --repo <owner/repo>`. Release notes list the install commands and how to verify a download.

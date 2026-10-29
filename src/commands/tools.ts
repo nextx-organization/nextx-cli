@@ -168,7 +168,7 @@ export function registerTools(program: Command): void {
       if (envVar("API_KEY")) {
         const pub = (await publicTools()).find((p) => sameTool(p.name, name));
         if (!pub) throw new CliError(tr("Không thấy công cụ công khai này.", "Public tool not found."), Exit.notFound);
-        if (pub.kind !== "read") throw new CliError(tr("Khoá API chỉ gọi được công cụ đọc.", "API keys can only call read tools."), Exit.forbidden);
+        if (pub.kind !== "read") throw new CliError(tr("API key chỉ gọi được công cụ đọc.", "API keys can only call read tools."), Exit.forbidden);
         value = await post(`/ai/tools/${pub.module}/${pub.name}/read`, args);
       } else {
         const client = new McpClient(hasTty());

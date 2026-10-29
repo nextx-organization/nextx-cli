@@ -90,14 +90,14 @@ export function registerCiPolicy(ci: Command): void {
   });
 
   policy.command("request")
-    .description(tr("xin cho một kho CI tự ghi (người quản lý khoá API duyệt; có quyền thì có hiệu lực ngay)",
+    .description(tr("xin cho một kho CI tự ghi (người quản lý API key duyệt; có quyền thì có hiệu lực ngay)",
       "ask to let a CI repository write (an API-key manager approves; with that permission it is active at once)"))
-    .requiredOption("--trust <id|owner/repo>", tr("khai báo CI (xem: ci trust list)", "CI trust (see: ci trust list)"))
+    .requiredOption("--trust <id|owner/repo>", tr("CI trust (xem: ci trust list)", "CI trust (see: ci trust list)"))
     .requiredOption("--kinds <a,b>", tr("loại ghi (xem: ci policy kinds)", "kinds (see: ci policy kinds)"))
     .option("--max <n>", tr("trần số bản ghi (1–1000)", "record ceiling (1–1000)"), "50")
     .option("--expires <dur>", tr("thời hạn tối đa 30d", "lifetime, at most 30d"), "14d")
     .option("--note <text>")
-    .option("--approve", tr("duyệt luôn (cần quyền quản lý khoá API)", "approve now (needs API-key manage permission)"))
+    .option("--approve", tr("duyệt luôn (cần quyền quản lý API key)", "approve now (needs API-key manage permission)"))
     .action(async (o: { trust: string; kinds: string; max: string; expires: string; note?: string; approve?: boolean }) => {
       const want = o.trust.trim().toLowerCase();
       const trust = (await get<Trust[]>("/iam/ci-trusts")).find((t) => !t.revokedAt && (t.id.startsWith(want) || t.repository === want));

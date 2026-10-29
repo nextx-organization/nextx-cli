@@ -32,7 +32,7 @@ function printLogin(r: LoginResult): void {
   const p = getProfile(context().profile);
   ok(tr(`Đã đăng nhập ${c.bold(r.userName ?? "")} (${r.userEmail ?? ""})`, `Logged in as ${c.bold(r.userName ?? "")} (${r.userEmail ?? ""})`));
   info(`  ${tr("Workspace", "Workspace")}  ${c.bold(r.workspaceName ?? p?.workspaceName ?? "")}  · ${context().env === "prod" ? "prod" : c.yellow("sandbox")}`);
-  info(`  ${tr("Phiên", "Session")}      ${r.session.via === "ci" ? tr("15 phút, không gia hạn — hết thì đăng nhập CI lại", "15 minutes, no renewal — logs in again through CI when it ends") : tr("tự gia hạn khi dùng, hết hạn nếu bỏ không 30 ngày", "renews while used, expires after 30 idle days")} · ${storageKind() === "keychain" ? "Keychain" : tr("tệp 0600", "0600 file")}`);
+  info(`  ${tr("Session", "Session")}      ${r.session.via === "ci" ? tr("15 phút, không gia hạn — hết thì đăng nhập CI lại", "15 minutes, no renewal — logs in again through CI when it ends") : tr("tự gia hạn khi dùng, hết hạn nếu bỏ không 30 ngày", "renews while used, expires after 30 idle days")} · ${storageKind() === "keychain" ? "Keychain" : tr("tệp 0600", "0600 file")}`);
   info(c.dim(`  ${tr("Thử", "Try")}: ${brand().bin}  ·  ${brand().bin} -p "${tr(brand().example.vi, brand().example.en)}"  ·  ${brand().bin} help`));
 }
 
@@ -54,7 +54,7 @@ export function registerAuth(program: Command): void {
         const { notYetError } = await import("../core/errors.js");
         throw notYetError(
           tr(`${b.name} chưa mở ${o.ci ? "đăng nhập CI bằng OIDC" : "đăng nhập bằng mã thiết bị"}`, `${b.name} does not offer ${o.ci ? "CI OIDC login" : "device-code login"} yet`),
-          o.ci ? tr(`dùng khoá API: ${b.envPrefix}_API_KEY`, `use an API key: ${b.envPrefix}_API_KEY`) : tr(`dùng ${b.bin} login --qr (quét bằng app ${b.mobileApp}) hoặc --no-browser`, `use ${b.bin} login --qr (scan with the ${b.mobileApp} app) or --no-browser`));
+          o.ci ? tr(`dùng API key: ${b.envPrefix}_API_KEY`, `use an API key: ${b.envPrefix}_API_KEY`) : tr(`dùng ${b.bin} login --qr (quét bằng app ${b.mobileApp}) hoặc --no-browser`, `use ${b.bin} login --qr (scan with the ${b.mobileApp} app) or --no-browser`));
       }
       if (o.ci) r = await loginCi({ workspace: ws });
       else if (o.device) r = await loginDevice({ workspace: ws });
@@ -69,7 +69,7 @@ export function registerAuth(program: Command): void {
 
   program
     .command("logout")
-    .description(tr("đăng xuất hồ sơ này (thu hồi phiên trên máy chủ)", "log out this profile (revokes the server session)"))
+    .description(tr("đăng xuất hồ sơ này (thu hồi session trên máy chủ)", "log out this profile (revokes the server session)"))
     .option("--all", tr("đăng xuất mọi hồ sơ trên máy này", "log out every profile on this machine"))
     .action(async (o: { all?: boolean }) => {
       const profiles = o.all ? Object.keys(loadConfig().profiles) : [context().profile];
@@ -86,7 +86,7 @@ export function registerAuth(program: Command): void {
         if (revoked) ok(tr(`Đã đăng xuất (${name})`, `Logged out (${name})`));
         else
           warn(tr(
-            `Đã xoá phiên trên máy (${name}), nhưng không tới được máy chủ: phiên còn sống tới khi hết hạn. Thu hồi tại ${context().endpoints.id} › Thiết bị`,
+            `Đã xoá session trên máy (${name}), nhưng không tới được máy chủ: session còn sống tới khi hết hạn. Thu hồi tại ${context().endpoints.id} › Thiết bị`,
             `Removed the local session (${name}), but the server was unreachable: it stays valid until it expires. Revoke it at ${context().endpoints.id} › Devices`,
           ));
       }
@@ -94,7 +94,7 @@ export function registerAuth(program: Command): void {
 
   program
     .command("status")
-    .description(tr("tài khoản, workspace, môi trường, gói AI, phiên", "account, workspace, environment, AI plan, session"))
+    .description(tr("tài khoản, workspace, môi trường, gói AI, session", "account, workspace, environment, AI plan, session"))
     .action(async () => {
       const src = authSource();
       const p = getProfile(context().profile);
@@ -108,7 +108,7 @@ export function registerAuth(program: Command): void {
         return;
       }
       if (src === "apiKey") {
-        emit({ ...base, loggedIn: true, kind: "apiKey" }, () => info(tr(`Đang dùng khoá API từ ${b.envPrefix}_API_KEY (danh tính agent).`, `Using the API key from ${b.envPrefix}_API_KEY (agent identity).`)));
+        emit({ ...base, loggedIn: true, kind: "apiKey" }, () => info(tr(`Đang dùng API key từ ${b.envPrefix}_API_KEY (danh tính agent).`, `Using the API key from ${b.envPrefix}_API_KEY (agent identity).`)));
         return;
       }
       const auth = await currentAuth({ required: true });
@@ -131,15 +131,15 @@ export function registerAuth(program: Command): void {
         info(`  ${tr("Workspace", "Workspace")}   ${c.bold(me.workspace?.name ?? "")} ${c.dim(me.workspace?.code ?? "")} · ${(me.groups ?? []).join(", ")}`);
         info(`  ${tr("Môi trường", "Environment")}  ${context().env === "prod" ? c.red("prod") : c.yellow("sandbox")} · ${context().endpoints.api}`);
         if (u) info(`  ${tr("Gói AI", "AI plan")}      ${u.planName ?? "-"}${u.limit ? ` · ${tr("đã dùng", "used")} ${u.used}/${u.limit}, ${tr("mở lại", "resets")} ${u.resetsAt?.slice(0, 10)}` : ""}`);
-        info(`  ${tr("Danh tính", "Identity")}    ${src === "token" ? `${b.envPrefix}_TOKEN` : `${tr("phiên", "session")} (${s?.via}) · ${storageKind() === "keychain" ? "Keychain" : tr("tệp", "file")}`}`);
+        info(`  ${tr("Danh tính", "Identity")}    ${src === "token" ? `${b.envPrefix}_TOKEN` : `${tr("session", "session")} (${s?.via}) · ${storageKind() === "keychain" ? "Keychain" : tr("tệp", "file")}`}`);
         info(`  ${tr("Hồ sơ", "Profile")}       ${context().profile}${p?.agent ? ` · agent ${p.agent}` : ""} · CLI ${VERSION}`);
       });
     });
 
-  const sessions = program.command("sessions").description(tr("phiên đăng nhập của bạn trên mọi thiết bị", "your login sessions on all devices"));
+  const sessions = program.command("sessions").description(tr("session của bạn trên mọi thiết bị", "your login sessions on all devices"));
   sessions
     .command("list", { isDefault: true })
-    .description(tr("danh sách phiên", "list sessions"))
+    .description(tr("danh sách session", "list sessions"))
     .action(async () => {
       const list = await get<{ id: string; deviceName?: string | null; userAgent?: string | null; ipAddress?: string | null; lastActivity?: string; createdAt?: string; isCurrentSession?: boolean; osName?: string | null; browserName?: string | null; city?: string | null }[]>("/iam/sessions");
       const device = (s: (typeof list)[number]) => {
@@ -156,19 +156,19 @@ export function registerAuth(program: Command): void {
     });
   sessions
     .command("revoke [id]")
-    .description(tr("thu hồi một phiên, hoặc --others để thu hồi mọi phiên khác", "revoke one session, or --others for all other sessions"))
-    .option("--others", tr("mọi phiên trừ phiên này", "every session except this one"))
+    .description(tr("thu hồi một session, hoặc --others để thu hồi mọi session khác", "revoke one session, or --others for all other sessions"))
+    .option("--others", tr("mọi session trừ session này", "every session except this one"))
     .action(async (id: string | undefined, o: { others?: boolean }) => {
       if (o.others) {
         await del("/iam/sessions");
-        ok(tr("Đã thu hồi mọi phiên khác.", "Revoked all other sessions."));
+        ok(tr("Đã thu hồi mọi session khác.", "Revoked all other sessions."));
         return;
       }
-      if (!id) throw new CliError(tr("Cần id phiên (xem `sessions list`) hoặc --others.", "Pass a session id (see `sessions list`) or --others."), Exit.usage);
+      if (!id) throw new CliError(tr("Cần id session (xem `sessions list`) hoặc --others.", "Pass a session id (see `sessions list`) or --others."), Exit.usage);
       const list = await get<{ id: string }[]>("/iam/sessions");
       const hit = list.find((s) => s.id === id || s.id.startsWith(id));
-      if (!hit) throw new CliError(tr("Không thấy phiên này.", "Session not found."), Exit.notFound);
+      if (!hit) throw new CliError(tr("Không thấy session này.", "Session not found."), Exit.notFound);
       await del(`/iam/sessions/${hit.id}`);
-      ok(tr(`Đã thu hồi phiên ${hit.id.slice(0, 8)}.`, `Revoked session ${hit.id.slice(0, 8)}.`));
+      ok(tr(`Đã thu hồi session ${hit.id.slice(0, 8)}.`, `Revoked session ${hit.id.slice(0, 8)}.`));
     });
 }

@@ -40,7 +40,7 @@ export function registerApi(program: Command): void {
     .option("-H, --header <K: V>", tr("thêm header (lặp được)", "extra header (repeatable)"), (v: string, p: string[] = []) => [...p, v])
     .option("--paginate", tr("đi hết các trang (kết quả dạng items/pageNumber)", "follow all pages (items/pageNumber results)"))
     .option("--select <path>", tr("chỉ in một phần, vd .items[0].name", "print only part of the result, e.g. .items[0].name"))
-    .option("-i, --include", tr("in cả mã trạng thái và header", "print status and headers too"))
+    .option("-i, --include", tr("in cả status code và header", "print status and headers too"))
     .option("--idempotency-key <key>", tr("khoá chống trùng cho POST", "idempotency key for POST"))
     .action(async (methodRaw: string, path: string, o: { field?: string[]; rawField?: string[]; input?: string; header?: string[]; paginate?: boolean; select?: string; include?: boolean; idempotencyKey?: string }) => {
       const method = methodRaw.toUpperCase();

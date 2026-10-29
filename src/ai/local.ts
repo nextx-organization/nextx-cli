@@ -282,7 +282,7 @@ function providerError(m: ResolvedModel, status: number, message?: string): CliE
   if (status === 401 || status === 403)
     return new CliError(tr(`${who}: khoá model bị từ chối.`, `${who}: the model key was rejected.`) + (message ? ` (${message})` : ""), Exit.auth, `${brand().bin} model add ${m.provider} --key-from-stdin`);
   if (status === 404) return new CliError(tr(`${who}: không có model này.`, `${who}: no such model.`) + (message ? ` (${message})` : ""), Exit.notFound);
-  if (status === 429) return new CliError(tr(`${who}: nhà model đang giới hạn tốc độ hoặc hết hạn mức.`, `${who}: the provider is rate limiting or out of quota.`) + (message ? ` (${message})` : ""), Exit.quota);
+  if (status === 429) return new CliError(tr(`${who}: nhà model đang rate limit hoặc hết hạn mức.`, `${who}: the provider is rate limiting or out of quota.`) + (message ? ` (${message})` : ""), Exit.quota);
   return new CliError(`${who}: HTTP ${status}${message ? ` ${message}` : ""}`, Exit.general);
 }
 

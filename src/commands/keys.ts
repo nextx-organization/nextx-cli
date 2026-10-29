@@ -38,7 +38,7 @@ async function findKey(id: string): Promise<ApiKey> {
 const scopeExample = () => brand().examples.scopes;
 
 export function registerKeys(program: Command): void {
-  const keys = program.command("keys").description(tr("khoá API của workspace", "workspace API keys"));
+  const keys = program.command("keys").description(tr("API key của workspace", "workspace API keys"));
   keys.hook("preAction", async () => void (await requirePerson()));
 
   keys.command("list", { isDefault: true }).description(tr("danh sách khoá", "list keys")).action(async () => {
@@ -69,7 +69,7 @@ export function registerKeys(program: Command): void {
       emit(r, () => {
         ok(tr(`Đã tạo khoá "${o.name}"`, `Created key "${o.name}"`));
         info(`\n  ${c.bold(raw)}\n`);
-        warn(tr("Chỉ hiện một lần. Lưu ngay vào nơi an toàn (biến bí mật của CI, trình quản lý mật khẩu).", "Shown only once. Store it now (CI secret, password manager)."));
+        warn(tr("Chỉ hiện một lần. Lưu ngay vào nơi an toàn (biến secret của CI, trình quản lý mật khẩu).", "Shown only once. Store it now (CI secret, password manager)."));
         info(c.dim(`  ${brand().envPrefix}_API_KEY=${raw.slice(0, 8)}… ${brand().bin} tools list`));
       });
     });

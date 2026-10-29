@@ -107,7 +107,7 @@ export function verifySignature(secret: string, body: string, headers: Record<st
     const expected = createHmac("sha256", key).update(`${h["webhook-id"]}.${ts}.${body}`).digest("base64");
     if (h["webhook-signature"].split(" ").some((s) => eq(s.replace(/^v1,/, ""), expected))) return { ok: true, scheme: "webhook-signature" };
   }
-  return { ok: false, reason: tr("chữ ký không khớp", "signature mismatch") };
+  return { ok: false, reason: tr("signature không khớp", "signature mismatch") };
 }
 
 async function findEndpoint(id: string): Promise<Endpoint> {
@@ -117,7 +117,7 @@ async function findEndpoint(id: string): Promise<Endpoint> {
 }
 
 export function registerWebhooks(program: Command): void {
-  const wh = program.command("webhooks").alias("webhook").description(tr("sự kiện webhook: xem, bắn thử, nghe về máy", "webhook events: browse, trigger, listen locally"));
+  const wh = program.command("webhooks").alias("webhook").description(tr("sự kiện webhook: xem, trigger, nghe về máy", "webhook events: browse, trigger, listen locally"));
 
   wh.command("events").description(tr("danh sách sự kiện", "list events")).option("--module <m>")
     .action(async (o: { module?: string }) => {
@@ -204,7 +204,7 @@ export function registerWebhooks(program: Command): void {
     .option("--limit <n>", "", "30")
     .action(async (o: { status?: string; endpoint?: string; limit: string }) => {
       const list = await listDeliveries({ endpoint: o.endpoint, status: o.status, limit: Number(o.limit) });
-      emit(list, () => info(table(["ID", tr("Sự kiện", "Event"), tr("Kết quả", "Result"), "HTTP", "ms", tr("Thử lại", "Retries"), tr("Lúc", "At")], list.map((d) => [
+      emit(list, () => info(table(["ID", tr("Sự kiện", "Event"), tr("Kết quả", "Result"), "HTTP", "ms", tr("Retry", "Retries"), tr("Lúc", "At")], list.map((d) => [
         d.id.slice(0, 8), d.eventType, d.status === "success" ? c.green(d.status) : d.status === "failed" ? c.red(d.status) : d.status, d.responseStatus ?? "", d.durationMs ?? "", `${d.retryCount}/${d.maxRetries}`, when(d.createdAt),
       ]))));
     });
@@ -216,11 +216,11 @@ export function registerWebhooks(program: Command): void {
     emit(r, () => ok(tr("Đã xếp gửi lại.", "Retry queued.")));
   });
 
-  wh.command("verify").description(tr("kiểm chữ ký webhook tại máy (không gọi máy chủ)", "verify a webhook signature locally (no server call)"))
+  wh.command("verify").description(tr("kiểm signature webhook tại máy (không gọi máy chủ)", "verify a webhook signature locally (no server call)"))
     .requiredOption("--secret <secret>")
     .requiredOption("--payload <file>", tr("thân thô đã nhận (- = stdin)", "raw received body (- = stdin)"))
     .option("-H, --header <K: V>", tr("header đã nhận (lặp được)", "received header (repeatable)"), (v: string, p: string[] = []) => [...p, v])
-    .option("--signature <sig>", tr("chữ ký trong header *-Signature-256", "signature from the *-Signature-256 header"))
+    .option("--signature <sig>", tr("signature trong header *-Signature-256", "signature from the *-Signature-256 header"))
     .option("--timestamp <ts>", tr("dấu thời gian trong header *-Timestamp", "timestamp from the *-Timestamp header"))
     .action((o: { secret: string; payload: string; header?: string[]; signature?: string; timestamp?: string }) => {
       const body = readFileSync(o.payload === "-" ? 0 : o.payload, "utf8");
@@ -232,7 +232,7 @@ export function registerWebhooks(program: Command): void {
       if (o.signature) headers[sigHeader()] = o.signature;
       if (o.timestamp) headers[tsHeader()] = o.timestamp;
       const r = verifySignature(o.secret, body, headers);
-      emit(r, () => (r.ok ? ok(tr(`Chữ ký hợp lệ (${r.scheme})`, `Valid signature (${r.scheme})`)) : warn(tr(`Không hợp lệ: ${r.reason}`, `Invalid: ${r.reason}`))));
+      emit(r, () => (r.ok ? ok(tr(`Signature hợp lệ (${r.scheme})`, `Valid signature (${r.scheme})`)) : warn(tr(`Không hợp lệ: ${r.reason}`, `Invalid: ${r.reason}`))));
       if (!r.ok) process.exitCode = Exit.general;
     });
 
@@ -267,7 +267,7 @@ async function listen(o: { forwardTo?: string; events?: string; printSecret?: bo
       res = await requestRaw("GET", "/webhook/dev-listen", { query: { events: o.events }, signal: stop.signal, headers: { Accept: "text/event-stream" } });
     } catch (e) {
       if (stop.signal.aborted) break;
-      warn(tr(`Mất kết nối, thử lại sau ${backoff / 1000}s…`, `Disconnected, retrying in ${backoff / 1000}s…`));
+      warn(tr(`Mất kết nối, nối lại sau ${backoff / 1000}s…`, `Disconnected, retrying in ${backoff / 1000}s…`));
       await new Promise((r) => setTimeout(r, backoff));
       backoff = Math.min(backoff * 2, 30_000);
       void e;

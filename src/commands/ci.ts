@@ -49,7 +49,7 @@ jobs:
 export function workflowWriteSample(repo = "acme/web", ws = "my-workspace"): string {
   const b = brand();
   return `# .github/workflows/follow-up.yml  (${repo})
-# ${tr("Ghi chỉ trong chính sách duyệt trước (ci policy request); ngoài phạm vi thì để lại đề xuất chờ người duyệt (mã thoát 7).", "Writes only within an approved policy (ci policy request); anything else stays a proposal for a person (exit code 7).")}
+# ${tr("Ghi chỉ trong chính sách duyệt trước (ci policy request); ngoài scope thì để lại đề xuất chờ người duyệt (exit code 7).", "Writes only within an approved policy (ci policy request); anything else stays a proposal for a person (exit code 7).")}
 permissions:
   id-token: write
   contents: read
@@ -62,12 +62,12 @@ jobs:
 }
 
 export function registerCi(program: Command): void {
-  const ci = program.command("ci").description(tr("đăng nhập từ CI không cần bí mật (OIDC)", "secretless CI login (OIDC)"));
+  const ci = program.command("ci").description(tr("đăng nhập từ CI không cần secret (OIDC)", "secretless CI login (OIDC)"));
   const trust = ci.command("trust").description(tr("kho CI được phép đăng nhập workspace này", "CI repositories allowed to log in to this workspace"));
   trust.hook("preAction", async () => {
     if (brand().notYet?.includes("ci")) {
       const { notYetError } = await import("../core/errors.js");
-      throw notYetError(tr(`${brand().name} chưa mở đăng nhập CI bằng OIDC`, `${brand().name} does not offer CI OIDC login yet`), tr(`dùng khoá API: ${brand().envPrefix}_API_KEY`, `use an API key: ${brand().envPrefix}_API_KEY`));
+      throw notYetError(tr(`${brand().name} chưa mở đăng nhập CI bằng OIDC`, `${brand().name} does not offer CI OIDC login yet`), tr(`dùng API key: ${brand().envPrefix}_API_KEY`, `use an API key: ${brand().envPrefix}_API_KEY`));
     }
     await requirePerson();
   });
@@ -96,7 +96,7 @@ export function registerCi(program: Command): void {
       });
       emit(t, () => {
         ok(tr(`Đã cho ${t.provider}:${t.repository} (${t.refPattern}) đăng nhập`, `Allowed ${t.provider}:${t.repository} (${t.refPattern})`));
-        info(c.dim(tr(`\nCho CI tự ghi trong trần: ${brand().bin} ci policy request --trust ${t.repository} --kinds <mã>`, `\nLet CI write within a ceiling: ${brand().bin} ci policy request --trust ${t.repository} --kinds <code>`)));
+        info(c.dim(tr(`\nCho CI tự ghi trong trần: ${brand().bin} ci policy request --trust ${t.repository} --kinds <code>`, `\nLet CI write within a ceiling: ${brand().bin} ci policy request --trust ${t.repository} --kinds <code>`)));
         info(c.dim(tr("\nMẫu workflow:", "\nSample workflow:")));
         info(workflowSample(t.repository));
       });

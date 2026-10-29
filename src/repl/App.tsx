@@ -303,7 +303,7 @@ export function App(props: AppProps) {
       updateProfile(context().profile, { lastConversation: out.sessionId || sessionId });
       say(renderAnswer(out));
       if (out.proposedAction) await handleProposal(out.proposedAction);
-      if (out.ended === "escalate") say(c.dim(tr("  Cần người hỗ trợ? /support <vấn đề>", "  Need a human? /support <problem>")));
+      if (out.ended === "escalate") say(c.dim(tr("  Cần người hỗ trợ? /support <problem>", "  Need a human? /support <problem>")));
       refreshUsage();
     } catch (e) {
       if (ctl.signal.aborted) say(c.dim(tr("  ⏹ Đã dừng.", "  ⏹ Stopped.")));
@@ -426,7 +426,7 @@ export function App(props: AppProps) {
               `  ${tr("Đang dùng", "Using")} ${c.bold(local ? local.model.label : b.aiName)}`,
               `  ${c.cyan(b.bin.padEnd(10))} ${b.aiName}`,
               ...rows.map((r) => `  ${c.cyan(r.name.padEnd(10))} ${r.entry.model ?? ""}${r.hasKey ? "" : c.yellow(tr(" (chưa có khoá)", " (no key)"))}`),
-              c.dim(`  /model ${b.bin} · /model claude · /model ollama/<model> · ${b.bin} model add <nhà>`),
+              c.dim(`  /model ${b.bin} · /model claude · /model ollama/<model> · ${b.bin} model add <provider>`),
             ].join("\n"));
             break;
           }
@@ -461,7 +461,7 @@ export function App(props: AppProps) {
         }
         case "why": {
           const id = arg || lastOutcome?.runId;
-          if (!id) throw new Error(tr("Chưa có câu trả lời nào trong phiên này.", "No answer in this session yet."));
+          if (!id) throw new Error(tr("Chưa có câu trả lời nào trong session này.", "No answer in this session yet."));
           const run = await get<Record<string, unknown>>(`/ai/runs/${id}`);
           say(runLines(run).join("\n"));
           break;
@@ -501,7 +501,7 @@ export function App(props: AppProps) {
           const list = await publicTools();
           const by = new Map<string, number>();
           for (const t of list) by.set(t.module, (by.get(t.module) ?? 0) + 1);
-          say([...by.entries()].map(([m, n]) => `  ${m.padEnd(12)} ${n}`).join("\n") + c.dim(tr(`\n  ${b.bin} tools list · ${b.bin} tools describe <tên>`, `\n  ${b.bin} tools list · ${b.bin} tools describe <name>`)));
+          say([...by.entries()].map(([m, n]) => `  ${m.padEnd(12)} ${n}`).join("\n") + c.dim(tr(`\n  ${b.bin} tools list · ${b.bin} tools describe <name>`, `\n  ${b.bin} tools list · ${b.bin} tools describe <name>`)));
           break;
         }
         case "usage": {
@@ -517,7 +517,7 @@ export function App(props: AppProps) {
           break;
         }
         case "support": {
-          if (!arg) throw new Error(tr("Ghi rõ vấn đề: /support <vấn đề>", "Describe it: /support <problem>"));
+          if (!arg) throw new Error(tr("Ghi rõ vấn đề: /support <problem>", "Describe it: /support <problem>"));
           const r = await escalate(sessionId, arg);
           say(`${c.green("✓")} ${tr(`Đã chuyển cho nhân viên (${r.status}) · chờ khoảng ${r.estimatedWaitMinutes} phút`, `Handed over (${r.status}) · about ${r.estimatedWaitMinutes} min`)}`);
           break;

@@ -135,7 +135,7 @@ export async function handleProposal(sessionId: string, a: ProposedAction, mode 
     if (brand().platform === "nextx" && mode === "auto" && (await isCiSession())) {
       try {
         const r = await confirmAction(sessionId, a);
-        if (r.success) ok(r.message || tr("Đã ghi (CI, trong phạm vi duyệt trước).", "Written (CI, within the pre-approved scope)."));
+        if (r.success) ok(r.message || tr("Đã ghi (CI, trong scope duyệt trước).", "Written (CI, within the pre-approved scope)."));
         else warn(r.message);
         return { written: r.success, message: r.message };
       } catch (e) {
@@ -370,7 +370,7 @@ async function findChangeset(id: string): Promise<ChangesetHead> {
 }
 
 export function registerAi(program: Command): void {
-  const ai = program.command("ai").description(tr("trợ lý AI: hỏi, lịch sử, đề xuất ghi, bộ nhớ, lịch chạy", "AI assistant: ask, history, proposals, memory, schedules"));
+  const ai = program.command("ai").description(tr("trợ lý AI: hỏi, lịch sử, write proposal, bộ nhớ, lịch chạy", "AI assistant: ask, history, proposals, memory, schedules"));
 
   ai.command("ask <question...>")
     .description(tr("hỏi một câu không tương tác (giống -p)", "ask one question non-interactively (same as -p)"))
@@ -476,7 +476,7 @@ export function registerAi(program: Command): void {
       const head = await findChangeset(id);
       if (context().mode === "read") throw new CliError(tr("Chế độ chỉ đọc.", "Read-only mode."), Exit.forbidden);
       const ci = !hasTty() && (await isCiSession());
-      if (!hasTty() && !ci) throw new CliError(tr("Áp dụng bản nháp cần terminal tương tác (hoặc đăng nhập CI có phạm vi duyệt trước).", "Applying needs an interactive terminal (or a CI login with a pre-approved scope)."), Exit.notConfirmed);
+      if (!hasTty() && !ci) throw new CliError(tr("Áp dụng bản nháp cần terminal tương tác (hoặc đăng nhập CI có scope duyệt trước).", "Applying needs an interactive terminal (or a CI login with a pre-approved scope)."), Exit.notConfirmed);
       const env = context().env === "prod" ? c.red("PROD") : c.yellow("SANDBOX");
       info(`${c.bold(head.title)} · ${env}`);
       if (!ci) {
