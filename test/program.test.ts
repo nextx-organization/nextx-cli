@@ -29,6 +29,17 @@ test("gợi ý Tab: lệnh con và cờ", async () => {
 });
 
 
+test("bản nextx không nhắc tới gym trong trợ giúp, không lấy công cụ / scope của gym", skip, async () => {
+  setBrand("nextx");
+  const { buildProgram } = await import("../src/program.js");
+  const { helpTree } = await import("../src/commands/help.js");
+  const { visibleModule } = await import("../src/core/brand.js");
+  const text = JSON.stringify(helpTree(buildProgram()));
+  assert.equal(/\bgym/i.test(text), false, text.match(/.{40}gym.{40}/i)?.[0]);
+  assert.equal(visibleModule("gym:read"), false);
+  assert.equal(visibleModule("crm.contacts.view"), true);
+});
+
 test("cờ chung đặt sau lệnh con vẫn nhận (nextx login --sandbox)", async () => {
   setBrand("nextx");
   const { buildProgram } = await import("../src/program.js");

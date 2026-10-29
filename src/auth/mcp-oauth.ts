@@ -2,7 +2,7 @@
 // MCP resource (RFC 8707): public client identified by its metadata document URL, PKCE + loopback, one consent
 // in the browser, then refresh tokens.
 import { fetch } from "undici";
-import { brand } from "../core/brand.js";
+import { brand, visibleModule } from "../core/brand.js";
 import { context } from "../core/context.js";
 import { CliError, Exit } from "../core/errors.js";
 import { tr } from "../core/i18n.js";
@@ -79,8 +79,7 @@ export const cliClientId = () => `${context().endpoints.docs}/cli/oauth-client.j
 
 /** Scopes to ask for: everything the server offers, limited to the brand's modules. */
 function wantedScopes(offered: string[]): string {
-  const mods = brand().modules;
-  return offered.filter((s) => !mods || mods.includes(s.split(":")[0]!)).join(" ");
+  return offered.filter((s) => visibleModule(s)).join(" ");
 }
 
 export async function authorizeMcp(opts: { openBrowser?: boolean; manual?: boolean } = {}): Promise<McpGrant> {

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.2
+
+- `tools list`, the MCP sign-in and help examples follow the modules your product offers.
+
 ## 0.3.1
 
 - Help examples (`keys create --scopes`, `ci policy`) show permission codes of your own product.

@@ -133,9 +133,9 @@ jobs:
           app-id: ${{ vars.BOT_APP_ID }}
           private-key: ${{ secrets.BOT_PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
-          repositories: homebrew-tap
+          repositories: homebrew-nextx
       - uses: actions/checkout@v4
-        with: { repository: "${{ github.repository_owner }}/homebrew-tap", token: "${{ steps.app.outputs.token }}", path: tap }
+        with: { repository: "${{ github.repository_owner }}/homebrew-nextx", token: "${{ steps.app.outputs.token }}", path: tap }
       - uses: actions/download-artifact@v4
         with: { name: package-managers, path: pm }
       - name: Update formula + scoop manifest
@@ -148,4 +148,5 @@ jobs:
           git config user.email "support@nextx.vn"
           git add Formula bucket
           git diff --cached --quiet || git commit -m "nextx ${GITHUB_REF_NAME}"
-          git push
+          # Several CLIs share the tap and release at the same time: rebase onto theirs and retry.
+          for i in 1 2 3 4 5; do git push && exit 0; git pull --rebase; sleep $((i * 3)); done; exit 1

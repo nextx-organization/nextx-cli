@@ -25,7 +25,7 @@ irm https://developers.nextx.vn/install.ps1 | iex
 Homebrew:
 
 ```bash
-brew install nextx-organization/tap/nextx
+brew install nextx-organization/nextx/nextx
 ```
 
 npm (Node 20+):

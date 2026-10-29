@@ -1,7 +1,7 @@
 import { Option, type Command } from "commander";
 import { readFileSync } from "node:fs";
 import { context } from "../core/context.js";
-import { brand, envVar } from "../core/brand.js";
+import { brand, envVar, visibleModule } from "../core/brand.js";
 import { CliError, Exit } from "../core/errors.js";
 import { currentLang, tr } from "../core/i18n.js";
 import { c, emit, info, json, ok, table } from "../core/output.js";
@@ -27,7 +27,7 @@ let publicCache: PublicTool[] | undefined;
 
 export async function publicTools(): Promise<PublicTool[]> {
   publicCache ??= (await loadPublicTools())
-    .filter((t) => !brand().modules || brand().modules!.includes(t.module));
+    .filter((t) => visibleModule(t.module));
   return publicCache;
 }
 
@@ -109,7 +109,7 @@ export function registerTools(program: Command): void {
 
   tools.command("list", { isDefault: true })
     .description(tr("danh sách công cụ", "list tools"))
-    .option("--module <m>", tr("lọc theo phân hệ (crm, sales, gym…)", "filter by module (crm, sales, gym…)"))
+    .option("--module <m>", tr(`lọc theo phân hệ (${brand().examples.modules})`, `filter by module (${brand().examples.modules})`))
     .addOption(new Option("--kind <k>", tr("lọc theo loại", "filter by kind")).choices(["read", "proposal", "export"]))
     .option("--public", tr("danh mục công khai (không cần đăng nhập)", "public catalog (no login)"))
     .action(async (o: { module?: string; kind?: string; public?: boolean }) => {
