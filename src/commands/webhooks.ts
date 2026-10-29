@@ -49,31 +49,32 @@ interface Delivery {
 
 const when = (iso?: string | null) => (iso ? iso.slice(0, 19).replace("T", " ") : "");
 
-const farm = () => brand().platform === "nextfarm";
+/** Platforms whose webhook contract differs (event list shape, endpoints with many events, per-endpoint deliveries, test call). */
+let farm = (): boolean => false;
 
-/** Signature headers per platform: `X-Nextfarm-Signature` on NextFarm, `…-Signature-256` otherwise (both sha256=HMAC(ts.body)). */
-const sigHeader = () => (farm() ? "x-nextfarm-signature" : "x-nextx-signature-256");
-const tsHeader = () => (farm() ? "x-nextfarm-timestamp" : "x-nextx-timestamp");
-
-export async function eventTypes(): Promise<EventType[]> {
-  if (!farm()) return get<EventType[]>("/webhook/public/event-types", { anonymous: true });
-  // NextFarm: { version, envelope, events: [{ event, group, title, title_en, description, description_en, scope, payload_schema, example }] },
-  // read verbatim so payload field names in the schema and example stay snake_case as delivered.
-  type Raw = { event: string; group: string; title: string; title_en?: string; description?: string; description_en?: string; scope?: string; payload_schema?: unknown; example?: unknown };
-  const r = await get<{ events: Raw[] }>("/webhook/public/event-types", { anonymous: true, verbatim: true });
-  return r.events.map((e) => ({
-    event: e.event, service: e.group, title: currentLang() === "en" ? e.title_en ?? e.title : e.title, description: e.description,
-    descriptionEn: e.description_en, planRequired: e.scope, payloadSchema: e.payload_schema, example: e.example,
-  }));
+/** Signature headers per platform: `…-Signature-256` by default (sha256=HMAC(ts.body)). */
+function sigHeader(): string {
+  return "x-nextx-signature-256";
+}
+function tsHeader(): string {
+  return "x-nextx-timestamp";
+}
+function sigScheme(): string {
+  return "Signature-256";
 }
 
-/** NextFarm endpoints carry `eventTypes` and no single module. */
+export async function eventTypes(): Promise<EventType[]> {
+  return get<EventType[]>("/webhook/public/event-types", { anonymous: true });
+}
+
+
+/** Some platforms send `eventTypes` per endpoint and no single module. */
 async function listEndpoints(): Promise<Endpoint[]> {
   const list = await get<(Endpoint & { eventTypes?: string[] })[]>("/webhook/endpoints");
   return farm() ? list.map((e) => ({ ...e, events: e.eventTypes ?? [], status: e.isActive ? "active" : "disabled" })) : list;
 }
 
-/** NextFarm keeps deliveries per endpoint only; the CLI merges them. */
+/** Some platforms keep deliveries per endpoint only; the CLI merges them. */
 async function listDeliveries(o: { endpoint?: string; status?: string; limit: number }): Promise<Delivery[]> {
   if (!farm()) {
     const path = o.endpoint ? `/webhook/endpoints/${(await findEndpoint(o.endpoint)).id}/deliveries` : "/webhook/deliveries";
@@ -99,7 +100,7 @@ export function verifySignature(secret: string, body: string, headers: Record<st
   if (h[sigHeader()] && ts) {
     const expected = "sha256=" + createHmac("sha256", secret).update(`${ts}.${body}`).digest("hex");
     const got = [h[sigHeader()], h[`${sigHeader()}-previous`]].filter(Boolean) as string[];
-    if (got.some((g) => eq(g, expected))) return { ok: true, scheme: farm() ? "X-Nextfarm-Signature" : "Signature-256" };
+    if (got.some((g) => eq(g, expected))) return { ok: true, scheme: sigScheme() };
   }
   if (h["webhook-signature"] && h["webhook-id"] && ts) {
     const key = secret.startsWith("whsec_") ? Buffer.from(secret.slice(6), "base64") : Buffer.from(secret);
@@ -187,7 +188,7 @@ export function registerWebhooks(program: Command): void {
       const target = o.endpoint ? await findEndpoint(o.endpoint) : list.find((e) => e.events.includes(event));
       if (!target) throw new CliError(tr("Chưa có endpoint nào nhận sự kiện này.", "No endpoint subscribes to this event."), Exit.notFound, tr(`Dùng \`${brand().bin} webhooks listen --events ${event}\` để nghe về máy.`, `Use \`${brand().bin} webhooks listen --events ${event}\` to receive it locally.`));
       if (farm()) {
-        // NextFarm sends a signed `webhook.test` and answers with the receiver's status straight away.
+        // This platform sends a signed `webhook.test` and answers with the receiver's status straight away.
         const t = await post<{ ok: boolean; statusCode?: number | null; error?: string | null; durationMs: number }>(`/webhook/endpoints/${target.id}/test`, {});
         emit(t, () => (t.ok ? ok : warn)(tr(`Đã gửi webhook.test → ${target.url}`, `Sent webhook.test → ${target.url}`) + ` · ${t.statusCode ? `HTTP ${t.statusCode}` : t.error ?? ""} · ${t.durationMs}ms`));
         if (!t.ok) process.exitCode = Exit.general;

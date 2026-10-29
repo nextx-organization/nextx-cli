@@ -2,7 +2,6 @@
 // Order: <PREFIX>_API_KEY → <PREFIX>_TOKEN → stored session of the profile. `status` prints which one is used.
 import { fetch } from "undici";
 import { brand, envVar } from "../core/brand.js";
-import { snakeKeys, snakeOnWire } from "../core/case.js";
 import { context } from "../core/context.js";
 import { CliError, Exit } from "../core/errors.js";
 import { t } from "../core/i18n.js";
@@ -103,10 +102,11 @@ export function sessionFrom(body: TokenPairBody, via: Session["via"], prev?: Ses
  * Refreshes the stored session. `staleAccess` is the token the caller saw: if another process already
  * replaced it while we waited for the lock, its result is reused instead of refreshing again.
  */
-/** Body for `/iam/auth/refresh-token`. NextFarm IAM is snake_case: a camelCase key is ignored and answers 401 "required". */
+/** Body for `/iam/auth/refresh-token`. An IAM that speaks snake_case ignores a camelCase key and answers 401 "required". */
 export function refreshBody(url: string, refreshToken: string): string {
   const body = { refreshToken };
-  return JSON.stringify(snakeOnWire(url) ? snakeKeys(body) : body);
+  void url;
+  return JSON.stringify(body);
 }
 
 export async function refreshSession(staleAccess?: string): Promise<Auth> {

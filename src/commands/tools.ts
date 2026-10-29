@@ -26,20 +26,15 @@ export interface PublicTool {
 let publicCache: PublicTool[] | undefined;
 
 export async function publicTools(): Promise<PublicTool[]> {
-  publicCache ??= (brand().platform === "nextfarm" ? await nextFarmPublicTools() : await get<PublicTool[]>("/ai/public/tools", { anonymous: true }))
+  publicCache ??= (await loadPublicTools())
     .filter((t) => !brand().modules || brand().modules!.includes(t.module));
   return publicCache;
 }
 
-/** NextFarm: `{ version, tools: [{ name, service, scope, title, title_en, summary, summary_en, parameters, example_args }] }`, read verbatim so schema property names stay as the tool expects them. */
-async function nextFarmPublicTools(): Promise<PublicTool[]> {
-  type Raw = { name: string; service: string; scope?: string; title?: string; summary?: string; summary_en?: string; parameters?: PublicTool["parameters"]; example_args?: Record<string, unknown> };
-  const r = await get<{ tools: Raw[] }>("/ai/public/tools", { anonymous: true, verbatim: true });
-  return r.tools.map((t) => ({
-    name: t.name, module: t.service, title: t.title, summary: t.summary, summaryEn: t.summary_en, scope: t.scope,
-    kind: t.scope?.endsWith(":write") ? "write" : "read", parameters: t.parameters, exampleArgs: t.example_args,
-  }));
+async function loadPublicTools(): Promise<PublicTool[]> {
+  return get<PublicTool[]>("/ai/public/tools", { anonymous: true });
 }
+
 
 /** MCP names may differ from catalog names (module prefix, dots); match loosely. */
 export function sameTool(a: string, b: string): boolean {
@@ -170,19 +165,7 @@ export function registerTools(program: Command): void {
     .action(async (name: string, o: { args?: string; argsFile?: string; arg?: string[] }) => {
       const args = parseArgs(o);
       let value: unknown;
-      if (envVar("API_KEY") && brand().platform === "nextfarm") {
-        // NextFarm has no REST door for tools: the API key speaks MCP through the gateway, which keeps its read-only route rules.
-        const client = new McpClient(false, envVar("API_KEY"), `${context().endpoints.api}/api/v1/mcp`);
-        const tool = (await client.listTools()).find((t) => sameTool(t.name, name));
-        if (!tool) throw new CliError(tr("Khoá này không thấy công cụ đó (thiếu phạm vi?).", "This key cannot see that tool (missing scope?)."), Exit.notFound, `${brand().bin} tools list`);
-        const r = await client.callTool(tool.name, args);
-        value = resultValue(r);
-        if (r.isError) {
-          emit({ error: value }, () => info(c.red(typeof value === "string" ? value : JSON.stringify(value, null, 2))));
-          process.exitCode = Exit.general;
-          return;
-        }
-      } else if (envVar("API_KEY")) {
+      if (envVar("API_KEY")) {
         const pub = (await publicTools()).find((p) => sameTool(p.name, name));
         if (!pub) throw new CliError(tr("Không thấy công cụ công khai này.", "Public tool not found."), Exit.notFound);
         if (pub.kind !== "read") throw new CliError(tr("Khoá API chỉ gọi được công cụ đọc.", "API keys can only call read tools."), Exit.forbidden);

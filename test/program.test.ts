@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { brand, setBrand } from "../src/core/brand.js";
 
-/** In a NextFarm-only tree the default brand is gone and these cases do not apply. */
+/** In a tree without the default brand these cases do not apply. */
 const onDefaultPlatform = () => { setBrand("nextx"); return brand().platform === "nextx"; };
 const skip = { skip: !onDefaultPlatform() };
 

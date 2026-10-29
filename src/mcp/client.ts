@@ -31,7 +31,7 @@ export class McpClient {
   private token?: string;
   private ready = false;
 
-  /** `url`: MCP endpoint other than the hosted OAuth server (NextFarm API keys go through the gateway's /api/v1/mcp). */
+  /** `url`: MCP endpoint other than the hosted OAuth server (API keys that go through the gateway's /api/v1/mcp). */
   constructor(private readonly interactive: boolean, private readonly apiKey?: string, private readonly url?: string) {}
 
   private async rpc<T>(method: string, params?: unknown, notification = false): Promise<T> {

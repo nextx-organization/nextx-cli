@@ -35,6 +35,8 @@ async function findKey(id: string): Promise<ApiKey> {
   return k;
 }
 
+const scopeExample = () => brand().examples.scopes;
+
 export function registerKeys(program: Command): void {
   const keys = program.command("keys").description(tr("khoá API của workspace", "workspace API keys"));
   keys.hook("preAction", async () => void (await requirePerson()));
@@ -52,7 +54,7 @@ export function registerKeys(program: Command): void {
   keys.command("create")
     .description(tr("tạo khoá mới (in khoá đúng một lần)", "create a key (printed once)"))
     .requiredOption("--name <name>")
-    .requiredOption("--scopes <codes>", tr("mã quyền, phẩy ngăn cách, vd crm.contacts.view,sales.orders.view", "permission codes, comma separated, e.g. crm.contacts.view,sales.orders.view"))
+    .requiredOption("--scopes <codes>", tr(`mã quyền, phẩy ngăn cách, vd ${scopeExample()}`, `permission codes, comma separated, e.g. ${scopeExample()}`))
     .option("--expires <dur>", tr("thời hạn: 30d, 6m, 1y", "lifetime: 30d, 6m, 1y"), "90d")
     .option("--description <text>")
     .action(async (o: { name: string; scopes: string; expires: string; description?: string }) => {

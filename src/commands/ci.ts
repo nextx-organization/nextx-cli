@@ -7,6 +7,7 @@ import { get, post } from "../core/http.js";
 import { confirm, hasTty } from "../core/prompt.js";
 import { requirePerson } from "../auth/session.js";
 import { parseDuration } from "./keys.js";
+import { registerCiPolicy } from "./ci-policy.js";
 
 interface CiTrust {
   id: string;
@@ -19,6 +20,13 @@ interface CiTrust {
   revokedAt?: string | null;
   lastUsedAt?: string | null;
   createdAt: string;
+  firstWriteAt?: string | null;
+}
+
+async function findTrust(id: string): Promise<CiTrust> {
+  const t = (await get<CiTrust[]>("/iam/ci-trusts")).find((x) => x.id.startsWith(id) || x.repository === id);
+  if (!t) throw new CliError(tr("Không thấy khai báo này.", "Not found."), Exit.notFound);
+  return t;
 }
 
 const when = (s?: string | null) => (s ? s.slice(0, 16).replace("T", " ") : "—");
@@ -35,6 +43,22 @@ jobs:
     steps:
       - run: npx -y ${b.pkg} login --ci --workspace ${ws}
       - run: npx -y ${b.pkg} -p "${tr(b.example.vi, b.example.en)}" --json > report.json`;
+}
+
+/** Mẫu CI có GHI: chỉ chạy được sau khi quản trị mở phạm vi (ci trust set --allow … --max-per-run …). */
+export function workflowWriteSample(repo = "acme/web", ws = "my-workspace"): string {
+  const b = brand();
+  return `# .github/workflows/follow-up.yml  (${repo})
+# ${tr("Ghi chỉ trong chính sách duyệt trước (ci policy request); ngoài phạm vi thì để lại đề xuất chờ người duyệt (mã thoát 7).", "Writes only within an approved policy (ci policy request); anything else stays a proposal for a person (exit code 7).")}
+permissions:
+  id-token: write
+  contents: read
+jobs:
+  follow-up:
+    runs-on: ubuntu-latest
+    steps:
+      - run: npx -y ${b.pkg} login --ci --workspace ${ws}
+      - run: npx -y ${b.pkg} -p "${tr("tạo việc gọi lại cho khách quá hạn chăm sóc 7 ngày", "create call-back tasks for customers not contacted in 7 days")}" --mode auto`;
 }
 
 export function registerCi(program: Command): void {
@@ -72,20 +96,25 @@ export function registerCi(program: Command): void {
       });
       emit(t, () => {
         ok(tr(`Đã cho ${t.provider}:${t.repository} (${t.refPattern}) đăng nhập`, `Allowed ${t.provider}:${t.repository} (${t.refPattern})`));
+        info(c.dim(tr(`\nCho CI tự ghi trong trần: ${brand().bin} ci policy request --trust ${t.repository} --kinds <mã>`, `\nLet CI write within a ceiling: ${brand().bin} ci policy request --trust ${t.repository} --kinds <code>`)));
         info(c.dim(tr("\nMẫu workflow:", "\nSample workflow:")));
         info(workflowSample(t.repository));
       });
     });
 
+
   trust.command("revoke <id>").description(tr("thu hồi (có hiệu lực ngay)", "revoke (immediate)")).action(async (id: string) => {
-    const t = (await get<CiTrust[]>("/iam/ci-trusts")).find((x) => x.id.startsWith(id) || x.repository === id);
-    if (!t) throw new CliError(tr("Không thấy khai báo này.", "Not found."), Exit.notFound);
+    const t = await findTrust(id);
     if (hasTty() && !(await confirm(tr(`Thu hồi ${t.repository}?`, `Revoke ${t.repository}?`)))) return;
     await post(`/iam/ci-trusts/${t.id}/revoke`, {});
     ok(tr("Đã thu hồi.", "Revoked."));
   });
 
+  // Chính sách duyệt trước: cùng hợp đồng /ai/ci-write-policies trên mọi nền tảng.
+  registerCiPolicy(ci);
+
   ci.command("example").description(tr("in mẫu workflow GitHub Actions", "print a sample GitHub Actions workflow"))
     .option("--repo <owner/repo>").option("--workspace <code>")
-    .action((o: { repo?: string; workspace?: string }) => info(workflowSample(o.repo, o.workspace)));
+    .option("--write", tr("mẫu có tự ghi (cần chính sách: ci policy request)", "sample that writes (needs a policy: ci policy request)"))
+    .action((o: { repo?: string; workspace?: string; write?: boolean }) => info(o.write ? workflowWriteSample(o.repo, o.workspace) : workflowSample(o.repo, o.workspace)));
 }

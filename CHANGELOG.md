@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.3.1
+
+- Help examples (`keys create --scopes`, `ci policy`) show permission codes of your own product.
+- Release: a version already on npm is skipped instead of failing the release.
+
+## 0.3.0
+
+- `ci policy request|list|show|revoke|kinds`: pre-approval policies let a CI repository write on its own — chosen write permissions, a total row ceiling (up to 1000), at most 30 days. Anyone requests; an API-key manager approves (or `--approve` if you are one). A CI session cannot request, approve or revoke a policy.
+- In CI (`login --ci`, no terminal) with `--mode auto`, proposals are sent for confirmation and the server applies them only within an active policy; otherwise they stay a proposal (exit code 7). `-p --json` reports `proposals[0].applied` and exits 0 when written.
+- A CI session calls the API directly with the permissions of the person who added the repository; it cannot create API keys, CI trusts, policies, sessions or other long-lived access.
+- `ci trust add` no longer takes write options — use `ci policy request`. Policy ids are shown by their last 8 characters.
+
 ## 0.2.0
 
 - `--model`: answer with your own model on your machine — Claude, Gemini, GPT, Grok or Ollama — using your workspace tools over MCP. Writes still only create a proposal you confirm. `model add|list|remove|default`, and `/model` switches inside the chat.
@@ -15,7 +27,7 @@
 
 First release.
 
-- Chat with the assistant in the terminal (`nextx`), with slash commands, file attachments, permission modes and confirmed writes.
+- Chat with the assistant in the terminal, with slash commands, file attachments, permission modes and confirmed writes.
 - Login: browser (PKCE), QR via the mobile app, device code, API key, CI OIDC.
 - `-p` / `--json` / `--output-format stream-json` for scripts and agents.
 - `tools`, `api`, `keys`, `webhooks` (including `listen --forward-to` and `verify`), `mcp install|serve`, `doctor`, `completion`, `update`, `init`.

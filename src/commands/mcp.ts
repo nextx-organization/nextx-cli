@@ -154,8 +154,8 @@ export function registerMcp(program: Command): void {
 
 /** Line-delimited JSON-RPC on stdio ⇄ Streamable HTTP to the hosted server. Logs go to stderr only. */
 async function serveStdio(): Promise<void> {
-  // NextFarm API keys speak MCP through the gateway (same read-only route rules as the key everywhere else).
-  const apiKey = brand().platform === "nextfarm" ? envVar("API_KEY") : undefined;
+  // On some platforms an API key speaks MCP through the gateway (same read-only route rules as the key everywhere else).
+  let apiKey: string | undefined = undefined;
   const url = apiKey ? `${context().endpoints.api}/api/v1/mcp` : context().endpoints.mcp;
   let token = apiKey ?? (await mcpToken({ interactive: false }));
   let sessionId: string | undefined;

@@ -25,7 +25,6 @@ import { Editor, Menu, Select, edit, type MenuItem } from "./components.js";
 import { LocalChat } from "../ai/local.js";
 import { listModels, resolveModel, type ResolvedModel } from "../ai/models.js";
 import { SHORTCUTS, SLASH, matchSlash, slashCommands } from "./slash.js";
-import * as nf from "../ai/nextfarm.js";
 
 export interface AppProps {
   initialQuestion?: string;
@@ -341,66 +340,6 @@ export function App(props: AppProps) {
   }
 
   // ── slash commands ────────────────────────────────────────────────────────────────────────────
-  /** NextFarm versions of the slash commands whose server contract differs. True = handled. */
-  async function farmSlash(cmd: string, arg: string): Promise<boolean> {
-    switch (cmd) {
-      case "undo": {
-        const target = nf.undoTarget(arg || undefined);
-        const ok = await pick(tr(`Hoàn tác "${target.label}"?`, `Undo "${target.label}"?`), [{ label: tr("Không", "No"), value: "n" }, { label: tr("Hoàn tác", "Undo"), value: "y" }]);
-        if (ok === "y") say(`${c.green("✓")} ${await nf.undo(target)}`);
-        return true;
-      }
-      case "why": {
-        const id = arg || lastOutcome?.runId;
-        if (!id) throw new Error(tr("Chưa có câu trả lời nào trong phiên này.", "No answer in this session yet."));
-        say((await nf.runTrace(id)).join("\n"));
-        return true;
-      }
-      case "memory": {
-        const m = await nf.memories();
-        const [sub, id] = arg.split(/\s+/);
-        if (sub === "forget" && id) {
-          const hit = m.items.find((x) => x.id.startsWith(id));
-          if (!hit) throw new Error(tr("Không thấy điều nhớ này.", "Memory not found."));
-          await nf.forgetMemory(hit.id);
-          say(`${c.green("✓")} ${tr("Đã quên.", "Forgotten.")}`);
-          return true;
-        }
-        say(m.items.length ? table(["ID", tr("Điều nhớ", "Memory"), tr("Dùng", "Uses")], m.items.map((x) => [x.id.slice(0, 8), x.display, x.uses])) + (m.canDelete ? c.dim("\n  /memory forget <id>") : "") : tr("  Trợ lý chưa nhớ gì về trang trại.", "  Nothing remembered about the farm yet."));
-        return true;
-      }
-      case "schedule": {
-        const m = /^"([^"]+)"\s+(daily|weekly)\s+(?:([1-7])@)?(\d{1,2}:\d{2})$/.exec(arg);
-        if (m) {
-          const [, q, freq, day, time] = m;
-          const s = await nf.createSchedule(q!, freq as "daily" | "weekly", time!.padStart(5, "0"), day ? Number(day) : undefined);
-          say(`${c.green("✓")} ${tr(`Đã lên lịch · ${s.when}`, `Scheduled · ${s.when}`)}\n${c.dim(tr(`  Mở mục Trợ lý AI trong app ${b.mobileApp} một lần để cho phép chạy nền.`, `  Open the AI assistant in the ${b.mobileApp} app once to allow background runs.`))}`);
-        } else {
-          const list = await nf.schedules();
-          say((list.length ? table(["ID", tr("Tên", "Title"), tr("Lịch", "When"), tr("Lần tới", "Next")], list.map((s) => [s.id.slice(0, 8), s.title, s.when, s.nextRunAt.slice(0, 16).replace("T", " ")])) + "\n" : "") + c.dim(tr('  /schedule "nhật ký hôm qua" daily 07:00 · weekly 1@07:00 (1 = thứ Hai)', '  /schedule "yesterday\'s log" daily 07:00 · weekly 1@07:00 (1 = Monday)')));
-        }
-        return true;
-      }
-      case "sau-benh": {
-        if (!arg) throw new Error(tr("Cần ảnh: /sau-benh <ảnh.jpg>", "Pass a photo: /sau-benh <photo.jpg>"));
-        const [path, ...note] = arg.split(/\s+/);
-        await addAttachment(path!);
-        await send(note.length ? note.join(" ") : tr("Ảnh này cây bị sâu bệnh gì? Mức độ, cách xử lý và lô nào cần kiểm tra thêm.", "What pest or disease is in this photo? Severity, treatment and which plots to check."));
-        return true;
-      }
-      case "thoi-tiet":
-        await send(arg ? tr(`Thời tiết 3 ngày tới ở ${arg}, có ảnh hưởng gì tới việc phun, tưới, thu hoạch?`, `Weather for the next 3 days at ${arg} — any impact on spraying, irrigation, harvest?`)
-          : tr("Thời tiết 3 ngày tới ở trang trại, có ảnh hưởng gì tới việc phun, tưới, thu hoạch?", "Weather for the next 3 days at the farm — any impact on spraying, irrigation, harvest?"));
-        return true;
-      case "ban-tin": {
-        const brief = await nf.latestBrief();
-        say(brief ? `${c.bold(brief.title)} ${c.dim(brief.createdAt.slice(0, 16).replace("T", " "))}\n${markdown(brief.text)}` : tr("  Chưa có bản tin sáng nào. Bật trong app: Trợ lý AI › Bản tin sáng.", "  No morning brief yet. Turn it on in the app: AI assistant › Morning brief."));
-        return true;
-      }
-      default:
-        return false;
-    }
-  }
 
   async function runSlash(line: string) {
     const [cmd0, ...rest] = line.slice(1).split(/\s+/);
@@ -412,7 +351,6 @@ export function App(props: AppProps) {
         say(`${c.yellow("⚠")} ${tr(`Không có lệnh /${cmd}.`, `No command /${cmd}.`)} ${c.dim("/help")}`);
         return;
       }
-      if (b.platform === "nextfarm" && (await farmSlash(cmd, arg))) return;
       switch (cmd) {
         case "help":
         case "?": {

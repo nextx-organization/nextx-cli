@@ -116,6 +116,9 @@ jobs:
       - run: npm install -g npm@11.6.2
       - run: npm ci --no-audit --no-fund && npm run build
       - run: |
+          name=$(node -p 'require("./package.json").name'); version=$(node -p 'require("./package.json").version')
+          # A version already on the registry (e.g. published by hand) is not an error: skip instead of failing the release.
+          if npm view "$name@$version" version >/dev/null 2>&1; then echo "::notice::$name@$version is already on npm, skipping"; exit 0; fi
           tag=latest; case "$TAG" in *-*) tag=next;; esac
           npm publish --provenance --access public --tag "$tag"
 
