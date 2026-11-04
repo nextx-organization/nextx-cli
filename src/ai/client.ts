@@ -266,7 +266,7 @@ export async function ask(input: AskInput): Promise<AskOutcome> {
     imageKeys: input.attachments?.filter((a) => a.imageKey).map((a) => a.imageKey) ?? undefined,
     fileKeys: input.attachments?.filter((a) => a.fileKey).map((a) => a.fileKey) ?? undefined,
     agentCode: input.agent,
-    clientPlatform: "cli",
+    clientPlatform: `cli-${brand().bin}`,
     ...(mode ? { mode } : {}),
   };
   let lastErr: unknown;

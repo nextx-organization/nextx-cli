@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.9
+
+- The assistant now answers with the commands of the CLI you are using.
+
 ## 0.3.8
 
 - A workspace without an AI plan can still ask how-to questions in chat and with `-p`, up to the free daily limit.
