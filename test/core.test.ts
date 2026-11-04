@@ -161,11 +161,8 @@ test("markdown theo luồng: dấu đậm và bảng bị cắt giữa token v�
   assert.match(text, /│ 1\s+│\s+2 │/);
 });
 
-test("danh mục sự kiện chỉ giữ phân hệ của thương hiệu", skip, () => {
-  const list = [{ service: "CRM" }, { service: "GYM" }, { service: "gym" }, { service: "GOLF" }, { service: "IAM" }];
-  setBrand("nextx");
-  assert.deepEqual(visibleEvents(list).map((e) => e.service), ["CRM", "IAM"]);
-  setBrand("gymmaster");
-  assert.deepEqual(visibleEvents(list).map((e) => e.service), ["CRM", "GYM", "gym", "IAM"]);
-  setBrand("nextx");
+test("danh mục sự kiện ẩn phân hệ thương hiệu không bán", { skip: brand().hiddenModules.length === 0 }, () => {
+  const hidden = brand().hiddenModules[0]!;
+  const list = [{ service: "CRM" }, { service: hidden.toUpperCase() }, { service: hidden }];
+  assert.deepEqual(visibleEvents(list).map((e) => e.service), ["CRM"]);
 });

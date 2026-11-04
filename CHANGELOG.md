@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.3.6
+## 0.3.7
 
 - `-p` on a terminal now renders the answer: headings, bold, lists and tables. Piped or redirected output stays the raw text.
 - `webhooks events` and `status` show only the modules and roles of your product.
