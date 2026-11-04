@@ -2,7 +2,7 @@ import type { Command } from "commander";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { fetch } from "undici";
-import { brand } from "../core/brand.js";
+import { brand, visibleModule } from "../core/brand.js";
 import { context } from "../core/context.js";
 import { CliError, Exit } from "../core/errors.js";
 import { currentLang, tr } from "../core/i18n.js";
@@ -64,7 +64,12 @@ function sigScheme(): string {
 }
 
 export async function eventTypes(): Promise<EventType[]> {
-  return get<EventType[]>("/webhook/public/event-types", { anonymous: true });
+  return visibleEvents(await get<EventType[]>("/webhook/public/event-types", { anonymous: true }));
+}
+
+/** The event catalogue is shared by every product; each one shows only its own modules. */
+export function visibleEvents<T extends { service: string }>(list: T[]): T[] {
+  return list.filter((e) => visibleModule(e.service));
 }
 
 

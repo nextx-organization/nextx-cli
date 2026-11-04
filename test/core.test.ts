@@ -7,11 +7,11 @@ import { brand, setBrand } from "../src/core/brand.js";
 const onDefaultPlatform = () => { setBrand("nextx"); return brand().platform === "nextx"; };
 const skip = { skip: !onDefaultPlatform() };
 setBrand("nextx");
-const { verifySignature } = await import("../src/commands/webhooks.js");
+const { verifySignature, visibleEvents } = await import("../src/commands/webhooks.js");
 const { parseArgs } = await import("../src/commands/tools.js");
 const { select } = await import("../src/commands/api.js");
 const { riskOf, confirmWord, composeText, attachmentKind } = await import("../src/ai/client.js");
-const { markdown } = await import("../src/repl/markdown.js");
+const { markdown, markdownStream } = await import("../src/repl/markdown.js");
 const { isOlder, apiPath } = await import("../src/core/http.js");
 const { decodeJwt, sessionFrom, findWorkspace } = await import("../src/auth/session.js");
 const { compact } = await import("../src/core/output.js");
@@ -146,4 +146,26 @@ test("--model: tên nhà, nhà/model, tên lệnh = Trợ lý; thiếu khoá/tê
   assert.throws(() => resolveModel("gpt/x"), /Chưa có khoá/);
   assert.throws(() => resolveModel("abc"), /Không biết nhà model/);
   delete process.env.ANTHROPIC_API_KEY;
+});
+
+test("markdown theo luồng: dấu đậm và bảng bị cắt giữa token vẫn hiện đủ, khối mã không tách", () => {
+  let out = "";
+  const md = markdownStream((t) => { out += t; });
+  for (const t of ["## Mức", " độ\n\n**Đ", "ậm** xong\n\n", "```\na\n\nb\n```\n\n", "| A | B |\n|---|---|\n", "| 1 | 2 |\n"]) md.push(t);
+  md.end();
+  const text = strip(out);
+  assert.doesNotMatch(text, /\*\*|##|```/);
+  assert.match(text, /Mức độ/);
+  assert.match(text, /Đậm xong/);
+  assert.match(text, /a\n\s*\n\s*b/);
+  assert.match(text, /│ 1\s+│\s+2 │/);
+});
+
+test("danh mục sự kiện chỉ giữ phân hệ của thương hiệu", skip, () => {
+  const list = [{ service: "CRM" }, { service: "GYM" }, { service: "gym" }, { service: "GOLF" }, { service: "IAM" }];
+  setBrand("nextx");
+  assert.deepEqual(visibleEvents(list).map((e) => e.service), ["CRM", "IAM"]);
+  setBrand("gymmaster");
+  assert.deepEqual(visibleEvents(list).map((e) => e.service), ["CRM", "GYM", "gym", "IAM"]);
+  setBrand("nextx");
 });

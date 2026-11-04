@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.6
+
+- `-p` on a terminal now renders the answer: headings, bold, lists and tables. Piped or redirected output stays the raw text.
+- `webhooks events` and `status` show only the modules and roles of your product.
+
 ## 0.3.5
 
 - Vietnamese help keeps technical terms in English (API key, session, scope, signature, secret, retry, exit code, permission mode, output format, sandbox), and argument placeholders are English everywhere (`/rename <name>`, `/attach <file>`, `/config [key value]`).

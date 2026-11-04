@@ -19,6 +19,7 @@ import type { RootFlags } from "../program.js";
 import { LocalChat } from "../ai/local.js";
 import { mcpToken } from "../auth/mcp-oauth.js";
 import { defaultModel, resolveModel, type ResolvedModel } from "../ai/models.js";
+import { markdownStream } from "../repl/markdown.js";
 
 // ── NEXTX.md ───────────────────────────────────────────────────────────────────────────────────────
 
@@ -211,6 +212,16 @@ export async function runRoot(o: RootFlags, words: string[]): Promise<void> {
 }
 
 /** -p with --model: same output contract as the platform assistant, answered by the user's model. */
+/** On a terminal the answer is rendered; when piped or redirected it stays the raw text scripts expect. */
+function answerWriter(fmt: string): { push(text: string): void; end(full: string): void } {
+  const stdout = process.stdout;
+  if (fmt === "text" && stdout.isTTY) {
+    const md = markdownStream((t) => stdout.write(t));
+    return { push: (t) => md.push(t), end: () => md.end() };
+  }
+  return { push: (t) => void stdout.write(t), end: (full) => void (full && !full.endsWith("\n") && stdout.write("\n")) };
+}
+
 async function printLocal(o: RootFlags, model: ResolvedModel, question: string, piped: string): Promise<void> {
   const attachments: Attachment[] = [];
   for (const f of (o.file ?? []).slice(0, 3)) {
@@ -220,19 +231,20 @@ async function printLocal(o: RootFlags, model: ResolvedModel, question: string, 
   if (piped) attachments.push({ path: "-", name: "stdin", kind: "text", text: piped.slice(0, 20_000) });
   const fmt = outputFormat();
   const chat = new LocalChat(model, hasTty(), context().mode === "read");
+  const answer = answerWriter(fmt);
   const outcome = await chat.ask({
     text: composeText(question, attachments, findProjectNotes()?.text),
     onChunk: (ch) => {
       if (fmt === "stream-json") return json(ch);
       if (fmt !== "text") return;
-      if (ch.type === "token") process.stdout.write(ch.text ?? "");
+      if (ch.type === "token") answer.push(ch.text ?? "");
       else if (ch.type === "activity" && ch.activity && !o.quiet) process.stderr.write(c.dim(`⏺ ${ch.activity.label}\n`));
     },
   });
   if (fmt === "json")
     json({ model: model.label, text: outcome.text, notices: outcome.notices, tools: outcome.activities.map((a) => a.toolName), workspace: getProfile(context().profile)?.workspaceCode ?? null, env: context().env, ended: outcome.ended });
   else if (fmt === "text") {
-    if (outcome.text && !outcome.text.endsWith("\n")) process.stdout.write("\n");
+    answer.end(outcome.text);
     for (const n of outcome.notices) process.stderr.write(`${c.yellow("⚠")} ${n.message}\n`);
   }
   if (outcome.ended === "error") process.exitCode = Exit.general;
@@ -248,6 +260,7 @@ async function printAsk(o: RootFlags, question: string, piped: string): Promise<
   const text = composeText(question, attachments, notes?.text);
   const stdout = process.stdout;
   const stderr = process.stderr;
+  const answer = answerWriter(fmt);
   const outcome: AskOutcome = await ask({
     sessionId,
     text,
@@ -256,7 +269,7 @@ async function printAsk(o: RootFlags, question: string, piped: string): Promise<
     onChunk: (ch) => {
       if (fmt === "stream-json") return json(ch);
       if (fmt !== "text") return;
-      if (ch.type === "token") stdout.write(ch.text ?? "");
+      if (ch.type === "token") answer.push(ch.text ?? "");
       else if (ch.type === "activity" && ch.activity?.kind === "tool" && !o.quiet) stderr.write(c.dim(`⏺ ${ch.activity.label}\n`));
     },
     onRetry: (n) => stderr.write(c.yellow(tr(`⚠ Mất kết nối, đang nối lại (${n}/2)…\n`, `⚠ Connection lost, reconnecting (${n}/2)…\n`))),
@@ -298,7 +311,7 @@ async function printAsk(o: RootFlags, question: string, piped: string): Promise<
       ended: outcome.ended,
     });
   } else if (fmt === "text") {
-    if (outcome.text && !outcome.text.endsWith("\n")) stdout.write("\n");
+    answer.end(outcome.text);
     // Notices the answer already says in words are not repeated.
     for (const n of outcome.notices) if (n.message && !outcome.text.includes(n.message.slice(0, 24))) stderr.write(`${c.yellow("⚠")} ${n.message}\n`);
     for (const l of renderBlocks(outcome.done?.blocks?.filter((b) => b.type !== "text"))) stdout.write(`${l}\n`);

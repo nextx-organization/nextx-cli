@@ -1,5 +1,5 @@
 import type { Command } from "commander";
-import { brand } from "../core/brand.js";
+import { brand, visibleModule } from "../core/brand.js";
 import { context } from "../core/context.js";
 import { CliError, Exit } from "../core/errors.js";
 import { tr } from "../core/i18n.js";
@@ -128,7 +128,7 @@ export function registerAuth(program: Command): void {
       };
       emit(data, () => {
         info(`${c.bold(me.fullName ?? "")} ${c.dim(me.email ?? "")}`);
-        info(`  ${tr("Workspace", "Workspace")}   ${c.bold(me.workspace?.name ?? "")} ${c.dim(me.workspace?.code ?? "")} · ${(me.groups ?? []).join(", ")}`);
+        info(`  ${tr("Workspace", "Workspace")}   ${c.bold(me.workspace?.name ?? "")} ${c.dim(me.workspace?.code ?? "")} · ${(me.groups ?? []).filter(visibleModule).join(", ")}`);
         info(`  ${tr("Môi trường", "Environment")}  ${context().env === "prod" ? c.red("prod") : c.yellow("sandbox")} · ${context().endpoints.api}`);
         if (u) info(`  ${tr("Gói AI", "AI plan")}      ${u.planName ?? "-"}${u.limit ? ` · ${tr("đã dùng", "used")} ${u.used}/${u.limit}, ${tr("mở lại", "resets")} ${u.resetsAt?.slice(0, 10)}` : ""}`);
         info(`  ${tr("Danh tính", "Identity")}    ${src === "token" ? `${b.envPrefix}_TOKEN` : `${tr("session", "session")} (${s?.via}) · ${storageKind() === "keychain" ? "Keychain" : tr("tệp", "file")}`}`);

@@ -57,3 +57,39 @@ export function markdown(src: string): string {
   }
   return out.join("\n");
 }
+
+/**
+ * Renders a streamed answer as it arrives. Text is held until a blank line outside a code fence closes the block, so
+ * bold markers and tables split across tokens still render whole.
+ */
+export function markdownStream(write: (text: string) => void): { push(text: string): void; end(): void } {
+  let buf = "";
+  const flush = (block: string) => {
+    if (block.trim()) write(`${markdown(block)}\n\n`);
+  };
+  return {
+    push(text) {
+      buf += text.replace(/\r/g, "");
+      for (;;) {
+        let fence = false;
+        let at = -1;
+        let pos = 0;
+        for (const line of buf.split("\n").slice(0, -1)) {
+          if (/^```/.test(line)) fence = !fence;
+          else if (!fence && line.trim() === "" && pos > 0) {
+            at = pos;
+            break;
+          }
+          pos += line.length + 1;
+        }
+        if (at < 0) return;
+        flush(buf.slice(0, at));
+        buf = buf.slice(at + 1);
+      }
+    },
+    end() {
+      flush(buf);
+      buf = "";
+    },
+  };
+}
