@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.8
+
+- A workspace without an AI plan can still ask how-to questions in chat and with `-p`, up to the free daily limit.
+
 ## 0.3.7
 
 - `-p` on a terminal now renders the answer: headings, bold, lists and tables. Piped or redirected output stays the raw text.

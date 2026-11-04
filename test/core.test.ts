@@ -10,7 +10,7 @@ setBrand("nextx");
 const { verifySignature, visibleEvents } = await import("../src/commands/webhooks.js");
 const { parseArgs } = await import("../src/commands/tools.js");
 const { select } = await import("../src/commands/api.js");
-const { riskOf, confirmWord, composeText, attachmentKind } = await import("../src/ai/client.js");
+const { riskOf, confirmWord, composeText, attachmentKind, modeForPlan } = await import("../src/ai/client.js");
 const { markdown, markdownStream } = await import("../src/repl/markdown.js");
 const { isOlder, apiPath } = await import("../src/core/http.js");
 const { decodeJwt, sessionFrom, findWorkspace } = await import("../src/auth/session.js");
@@ -165,4 +165,10 @@ test("danh mục sự kiện ẩn phân hệ thương hiệu không bán", { ski
   const hidden = brand().hiddenModules[0]!;
   const list = [{ service: "CRM" }, { service: hidden.toUpperCase() }, { service: hidden }];
   assert.deepEqual(visibleEvents(list).map((e) => e.service), ["CRM"]);
+});
+
+test("workspace chưa có gói AI đi cửa hướng dẫn, có gói đi đường đầy đủ", () => {
+  assert.equal(modeForPlan(null), "guidance");
+  assert.equal(modeForPlan(undefined), "guidance");
+  assert.equal(modeForPlan("ai-lam"), undefined);
 });

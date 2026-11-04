@@ -116,7 +116,7 @@ export const feedback = (messageId: string, helpful: boolean) => {
 export const escalate = (sessionId: string, topic: string) => {
   return post<{ estimatedWaitMinutes: number; status: string }>(`${BASE}/escalate`, { sessionId, topic });
 };
-export const usage = (): Promise<{ planName?: string; used?: number; limit?: number; remaining?: number; resetsAt?: string; enforced?: boolean }> => {
+export const usage = (): Promise<{ planCode?: string | null; planName?: string; used?: number; limit?: number; remaining?: number; resetsAt?: string; enforced?: boolean }> => {
   return get(`${BASE}/usage`);
 };
 
@@ -243,12 +243,23 @@ export interface AskOutcome {
   followUps?: string[];
 }
 
+/** A workspace without an AI plan still gets how-to answers: the server's guidance door, same as the web app. */
+export const modeForPlan = (planCode: string | null | undefined): "guidance" | undefined => (planCode ? undefined : "guidance");
+
+let cachedMode: Promise<"guidance" | undefined> | undefined;
+const askMode = (): Promise<"guidance" | undefined> => {
+  // A failed plan lookup keeps the normal path: the server still decides what this workspace may do.
+  cachedMode ??= usage().then((u) => modeForPlan(u.planCode), () => undefined);
+  return cachedMode;
+};
+
 /**
  * Sends one question and streams the answer. If the connection drops, the same Idempotency-Key is resent,
  * so the server replays the stored answer instead of answering (and charging) twice.
  */
 export async function ask(input: AskInput): Promise<AskOutcome> {
   const key = randomUUID();
+  const mode = await askMode();
   const body = {
     sessionId: input.sessionId,
     text: input.text,
@@ -256,6 +267,7 @@ export async function ask(input: AskInput): Promise<AskOutcome> {
     fileKeys: input.attachments?.filter((a) => a.fileKey).map((a) => a.fileKey) ?? undefined,
     agentCode: input.agent,
     clientPlatform: "cli",
+    ...(mode ? { mode } : {}),
   };
   let lastErr: unknown;
   for (let attempt = 0; attempt < 3; attempt++) {
