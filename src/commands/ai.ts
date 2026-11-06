@@ -604,7 +604,7 @@ export function registerAi(program: Command): void {
       emit(list, () => info(table(["Code", tr("Tên", "Name"), tr("Trạng thái", "Status"), tr("Mô tả", "Description")], list.map((a) => [a.code, a.name, a.status === "available" ? c.green(a.status) : c.dim(`${a.status}${a.requiredPlanName ? ` (${a.requiredPlanName})` : ""}`), a.description.slice(0, 60)]))));
     });
 
-  ai.command("usage").description(tr("lượt AI tháng này", "AI turns this month"))
+  ai.command("usage").description(tr("câu AI tuần này", "AI questions this week"))
     .action(async () => {
       const u = await (await import("../ai/client.js")).usage();
       emit(u, () => info(`${tr("Gói", "Plan")} ${c.bold(u.planName ?? "-")} · ${tr("đã dùng", "used")} ${u.used ?? 0}${u.limit ? `/${u.limit}` : ""} · ${tr("mở lại", "resets")} ${u.resetsAt?.slice(0, 10) ?? ""}`));

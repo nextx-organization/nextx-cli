@@ -144,7 +144,7 @@ export function App(props: AppProps) {
   const profile = () => getProfile(context().profile);
   const refreshUsage = useCallback(() => {
     fetchUsage()
-      .then((u) => setUsageText(u.limit ? `${u.planName ?? ""} · ${u.remaining}/${u.limit} ${tr("lượt", "turns")}` : (u.planName ?? "")))
+      .then((u) => setUsageText(u.limit ? `${u.planName ?? ""} · ${Math.max(0, u.limit - (u.used ?? 0))}/${u.limit} ${tr("câu tuần này", "questions this week")}` : (u.planName ?? "")))
       .catch(() => undefined);
   }, []);
 

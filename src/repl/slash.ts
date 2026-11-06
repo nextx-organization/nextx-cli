@@ -32,7 +32,7 @@ export const SLASH: SlashCommand[] = [
   { name: "library", description: () => tr("Ảnh, tài liệu, tệp AI đã tạo", "Images, documents and files the AI produced"), platforms: ["nextx"] },
   { name: "export", args: "md|json [file]", description: () => tr("Xuất hội thoại ra Markdown / JSON", "Export the conversation to Markdown / JSON") },
   { name: "tools", description: () => tr("Công cụ AI bạn đang được dùng (theo quyền thật)", "AI tools you can use (by your real permissions)") },
-  { name: "usage", description: () => brand().platform === "nextx" ? tr("Lượt AI tháng này", "AI turns this month") : tr("Câu hỏi AI còn lại tuần này", "AI questions left this week") },
+  { name: "usage", description: () => brand().platform === "nextx" ? tr("Câu AI tuần này", "AI questions this week") : tr("Câu hỏi AI còn lại tuần này", "AI questions left this week") },
   { name: "feedback", args: "up|down", description: () => tr("Báo câu trả lời vừa rồi tốt / chưa tốt", "Rate the last answer") },
   { name: "support", args: "<problem>", description: () => tr("Chuyển cho nhân viên hỗ trợ (mở ticket)", "Hand over to a support agent (ticket)"), platforms: ["nextx"] },
   { name: "status", description: () => tr("Tài khoản, workspace, môi trường, phiên bản", "Account, workspace, environment, version") },

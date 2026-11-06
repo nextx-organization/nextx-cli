@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.10
+
+- AI usage now shows questions per week instead of turns per month.
+
 ## 0.3.9
 
 - The assistant now answers with the commands of the CLI you are using.

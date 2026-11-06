@@ -63,7 +63,7 @@ export function registerAuth(program: Command): void {
       const u = await usage();
       emit({ user: { name: r.userName, email: r.userEmail }, workspace: r.workspaceName, env: context().env, via: r.session.via, ai: u ?? null }, () => {
         printLogin(r);
-        if (u) info(`  ${tr("Gói AI", "AI plan")}     ${c.bold(u.planName ?? "-")}${u.limit ? ` · ${tr("còn", "left")} ${u.remaining}/${u.limit}` : ""}`);
+        if (u) info(`  ${tr("Gói AI", "AI plan")}     ${c.bold(u.planName ?? "-")}${u.limit ? ` · ${tr("đã dùng", "used")} ${u.used}/${u.limit}` : ""}`);
       });
     });
 
