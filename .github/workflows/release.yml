@@ -39,8 +39,8 @@ jobs:
       fail-fast: true
       matrix:
         include:
-          - { target: bun-darwin-arm64, os: darwin, arch: arm64, runner: macos-14 }
-          - { target: bun-darwin-x64-baseline, os: darwin, arch: x64, runner: macos-14 }
+          - { target: bun-darwin-arm64, os: darwin, arch: arm64, runner: macos-15 }
+          - { target: bun-darwin-x64-baseline, os: darwin, arch: x64, runner: macos-15 }
           - { target: bun-linux-x64-baseline, os: linux, arch: x64, runner: ubuntu-latest }
           - { target: bun-linux-arm64, os: linux, arch: arm64, runner: ubuntu-latest }
           - { target: bun-windows-x64-baseline, os: windows, arch: x64, runner: ubuntu-latest }

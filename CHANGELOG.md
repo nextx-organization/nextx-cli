@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.11
+
+- Release builds for macOS moved to a newer build image.
+
 ## 0.3.10
 
 - AI usage now shows questions per week instead of turns per month.
